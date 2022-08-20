@@ -12,6 +12,7 @@ const kinect = new KinectAzure();
 const depthModeRange = kinect.getDepthModeRange(KinectAzure.K4A_DEPTH_MODE_NFOV_UNBINNED);
 let kinect_flag = false;
 
+let newDepthData, newColorData;
 
 // const sizes = {
 //     width: window.innerWidth,
@@ -28,10 +29,6 @@ function Box(props) {
         size: {value: {width: 200, height: 300}, label: 'size'},
     })
 
-
-    const buttons = useControls({
-        Add: button((get) => alert(`Number value is ${get('number').toFixed(2)}`))
-    })
 
     // This reference gives us direct access to the THREE.Mesh object
     const ref = useRef()
@@ -78,7 +75,17 @@ function readImage(id) {
 }
 
 function App() {
-    const [colorToDepthImageData, setColorToDepthImageData] = useState(null);
+    // const [colorToDepthImageData, setColorToDepthImageData] = useState(null);
+    // const [depthImageData, setDepthImageData] = useState(null);
+
+    const buttons = useControls({
+        Add: button((get) => {
+            console.log(newDepthData, newColorData)
+            setTimeout(() => {
+                writeImage('gym-5', newDepthData, newColorData);
+            }, 5000)
+        })
+    })
 
     useEffect(() => {
         if (!kinect_flag) {
@@ -95,13 +102,15 @@ function App() {
                             include_depth_to_color: true
                         });
 
-
                         kinect.startListening((data) => {
 
-                            let newDepthData = Buffer.from(data.depthImageFrame.imageData);
-                            let newColorData = Buffer.from(data.colorToDepthImageFrame.imageData);
+                            newDepthData = Buffer.from(data.depthImageFrame.imageData);
+                            newColorData = Buffer.from(data.colorToDepthImageFrame.imageData);
 
-                            console.log(data, newDepthData.length, newColorData.length, data.colorToDepthImageFrame.width)
+                            //console.log(data, newDepthData.length, newColorData.length, data.colorToDepthImageFrame.width)
+
+                            // setColorToDepthImageData(newColorData);
+                            // setDepthImageData(newDepthData);
 
 
                             // let pointIndex = 0;
@@ -138,9 +147,10 @@ function App() {
                 } catch (e) {
                     console.log(e)
                 }
-            }, 5000)
+            }, 2000)
         }
     }, [])
+
 
     return (
         <div className="App">
@@ -148,8 +158,8 @@ function App() {
                 <Canvas>
                     <ambientLight/>
                     <pointLight position={[10, 10, 10]}/>
-                    <Box position={[-1.2, 0, 0]}/>
-                    <Box position={[1.2, 0, 0]}/>
+                    {/*<Box position={[-1.2, 0, 0]}/>*/}
+                    {/*<Box position={[1.2, 0, 0]}/>*/}
                     <RoundedBox args={[1, 1, 1]} radius={0.05} smoothness={4}>
                         <meshPhongMaterial color="#f3f3f3" wireframe/>
                     </RoundedBox>
