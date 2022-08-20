@@ -2,20 +2,36 @@
   "name": "realityedit",
   "version": "0.1.0",
   "private": true,
+  "main": "main.js",
+  "homepage": ".",
   "dependencies": {
+    "@react-three/drei": "^9.22.7",
+    "@react-three/fiber": "^8.3.1",
+    "@react-three/postprocessing": "^2.6.1",
     "@testing-library/jest-dom": "^5.16.5",
     "@testing-library/react": "^13.3.0",
     "@testing-library/user-event": "^13.5.0",
+    "concurrently": "^7.3.0",
+    "cross-env": "^7.0.3",
+    "electron": "^20.0.3",
+    "kinect-azure": "^0.3.0",
+    "leva": "^0.9.30",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-scripts": "5.0.1",
+    "stats.js": "^0.17.0",
+    "three": "^0.143.0",
+    "wait-on": "^6.0.1",
     "web-vitals": "^2.1.4"
   },
   "scripts": {
-    "start": "react-scripts start",
+    "start": "cross-env BROWSER=none react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "electron-start": "electron .",
+    "dev": "concurrently \"npm run start\" \"npm run electron\"",
+    "electron": "wait-on tcp:3000 && electron ."
   },
   "eslintConfig": {
     "extends": [
