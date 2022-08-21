@@ -2,7 +2,7 @@ import logo from './logo.svg';
 import './App.css';
 import {useEffect, useMemo, useRef, useState} from "react";
 import {KinectAzure} from "./static/KinectStream";
-import {Canvas, useFrame} from "@react-three/fiber";
+import {Canvas, useFrame, useThree} from "@react-three/fiber";
 import {button, useControls} from 'leva'
 import {MapControls, OrbitControls, RoundedBox, Stats} from "@react-three/drei";
 import {BufferAttribute} from "three";
@@ -14,7 +14,7 @@ const depthModeRange = kinect.getDepthModeRange(KinectAzure.K4A_DEPTH_MODE_NFOV_
 let kinect_flag = false;
 // const debug = false;
 
-let newDepthData, newColorData;
+// let newDepthData, newColorData;
 
 const sizes = {
     width: window.innerWidth,
@@ -34,6 +34,7 @@ function Box(props) {
 
     // This reference gives us direct access to the THREE.Mesh object
     const ref = useRef()
+    const [scene, camera] = useThree();
     // Hold state for hovered and clicked events
     const [hovered, hover] = useState(false)
     const [clicked, click] = useState(false)
@@ -82,8 +83,8 @@ const DEPTH_HEIGHT = 576;
 const numPoints = DEPTH_WIDTH * DEPTH_HEIGHT;
 
 function App() {
-    const [depthArray, setDepthArray] = useState([]);
-    const [colorArray, setColorArray] = useState([]);
+    const depthArray = useRef([]);
+    const colorArray = useRef([]);
 
     // const buttons = useControls({
     //     Add: button((get) => {
@@ -94,77 +95,86 @@ function App() {
     //     })
     // })
 
+    const kinectInit = () => {
+        try {
+            if (kinect && kinect.open()) {
+                let positions = [];
+                let colors = [];
+
+                for (let i = 0; i < numPoints; i++) {
+                    const x = (i % DEPTH_WIDTH) - DEPTH_WIDTH * 0.5;
+                    const y = DEPTH_HEIGHT / 2 - Math.floor(i / DEPTH_WIDTH);
+                    const vertex = [x, y, 0];
+                    positions.push(vertex);
+                    colors.push([0, 0, 0]);
+                }
+
+                positions = positions.flat(1);
+                colors = colors.flat(1);
+
+                console.log(positions.length)
+
+                kinect.startCameras({
+                    depth_mode: KinectAzure.K4A_DEPTH_MODE_NFOV_UNBINNED,
+                    color_format: KinectAzure.K4A_IMAGE_FORMAT_COLOR_BGRA32,
+                    color_resolution: KinectAzure.K4A_COLOR_RESOLUTION_720P,
+                    include_color_to_depth: true,
+                    // include_depth_to_color: true
+                });
+
+                kinect.startListening((data) => {
+
+                    let newDepthData = Buffer.from(data.depthImageFrame.imageData);
+                    let newColorData = Buffer.from(data.colorToDepthImageFrame.imageData);
+
+                    console.log(newDepthData.length)
+
+                    if (newDepthData.length !== 0) {
+
+                        let pointIndex = 0;
+
+                        for (let i = 0; i < newDepthData.length; i += 2) {
+
+                            const depthValue = newDepthData[i + 1] << 8 | newDepthData[i];
+                            const b = newColorData[pointIndex * 4 + 0];
+                            const g = newColorData[pointIndex * 4 + 1];
+                            const r = newColorData[pointIndex * 4 + 2];
+
+                            if (depthValue > depthModeRange.min && depthValue < depthModeRange.max) {
+                                positions[pointIndex * 3 + 2] = depthValue / 3;
+                            } else {
+                                positions[pointIndex * 3 + 2] = 99999;
+                            }
+
+                            colors[pointIndex * 3 + 0] = r / 255;
+                            colors[pointIndex * 3 + 1] = g / 255;
+                            colors[pointIndex * 3 + 2] = b / 255;
+
+                            pointIndex++;
+                        }
+
+                        depthArray.current = positions;
+                        colorArray.current = colors;
+
+                    }
+
+
+                });
+            } else {
+                console.log('kinect not open')
+                // kinectInit();
+            }
+
+        } catch (e) {
+            console.log(e)
+        }
+    }
+
     useEffect(() => {
         if (!kinect_flag) {
             kinect_flag = true;
-            setTimeout(() => {
-                try {
-                    if (kinect && kinect.open()) {
-                        console.log(kinect, depthModeRange)
-
-                        kinect.startCameras({
-                            depth_mode: KinectAzure.K4A_DEPTH_MODE_NFOV_UNBINNED,
-                            color_format: KinectAzure.K4A_IMAGE_FORMAT_COLOR_BGRA32,
-                            color_resolution: KinectAzure.K4A_COLOR_RESOLUTION_720P,
-                            include_color_to_depth: true,
-                            // include_depth_to_color: true
-                        });
-
-                        kinect.startListening((data) => {
-
-                            newDepthData = Buffer.from(data.depthImageFrame.imageData);
-                            newColorData = Buffer.from(data.colorToDepthImageFrame.imageData);
-
-                            // console.log(newDepthData.length)
-
-                            let positions = [];
-                            let colors = [];
-
-                            if (newDepthData.length !== 0) {
-                                for (let i = 0; i < numPoints / 3; i++) {
-                                    const x = (i % DEPTH_WIDTH) - DEPTH_WIDTH * 0.5;
-                                    const y = DEPTH_HEIGHT / 2 - Math.floor(i / DEPTH_WIDTH);
-                                    const vertex = [x, y, 0];
-                                    for (let j = 0; j < 3; j++) {
-                                        positions.push(vertex[j]);
-                                    }
-                                }
-
-                                let pointIndex = 2;
-
-                                for (let i = 0; i < newDepthData.length; i += 2) {
-                                    const depthValue = newDepthData[i + 1] << 8 | newDepthData[i];
-                                    const b = newColorData[pointIndex * 4 + 0];
-                                    const g = newColorData[pointIndex * 4 + 1];
-                                    const r = newColorData[pointIndex * 4 + 2];
-                                    const color = [r / 255, g / 255, b / 255];
-                                    for (let j = 0; j < 3; j++) {
-                                        colors.push(color[j]);
-                                    }
-
-                                    if (depthValue > depthModeRange.min && depthValue < depthModeRange.max) {
-                                        positions[pointIndex] = depthValue / 3;
-                                    } else {
-                                        positions[pointIndex] = 0;
-                                    }
-                                    pointIndex = pointIndex + 3;
-                                    if (pointIndex >= numPoints) {
-                                        break;
-                                    }
-                                }
-
-                                setDepthArray(positions);
-                                setColorArray(colors);
-                            }
-
-
-                        });
-                    }
-
-                } catch (e) {
-                    console.log(e)
-                }
-            }, 2000)
+            console.log(kinect)
+            setTimeout(() => kinectInit(), 5000)
         }
     }, [])
 
@@ -179,28 +189,6 @@ function App() {
                         near={1}
                         far={10000}
                     >
-                        {depthArray.length === 368640 ?
-                            <points>
-                                <bufferGeometry attach="geometry"
-                                                attributes={{position: new BufferAttribute(new Float32Array(depthArray), 3)}}>
-
-                                    <bufferAttribute
-                                        attachObject={['attributes', 'position']}
-                                        array={new Float32Array(depthArray)}
-                                        itemSize={3}
-                                        count={new Float32Array(depthArray).length / 3}
-                                    />
-                                    <bufferAttribute
-                                        attachObject={['attributes', 'color']}
-                                        array={new Float32Array(colorArray)}
-                                        itemSize={3}
-                                        count={new Float32Array(colorArray).length / 3}
-                                        // normalized
-                                    />
-                                </bufferGeometry>
-                                <pointsMaterial size={0.1}/>
-                            </points> : <></>
-                        }
 
                         {/*<Box position={[-1.2, 0, 0]}/>*/}
                         {/*<Box position={[1.2, 0, 0]}/>*/}

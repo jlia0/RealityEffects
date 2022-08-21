@@ -22,7 +22,8 @@
     "stats.js": "^0.17.0",
     "three": "^0.143.0",
     "wait-on": "^6.0.1",
-    "web-vitals": "^2.1.4"
+    "web-vitals": "^2.1.4",
+    "zustand": "^4.1.0"
   },
   "scripts": {
     "start": "cross-env BROWSER=none react-scripts start",
