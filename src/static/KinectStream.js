@@ -1,4 +1,4 @@
-export const KinectAzure = window.kinect;
+// export const KinectAzure = window.kinect;
 
 // const electron = window.require('electron')
 
@@ -6,3 +6,5 @@ export const KinectAzure = window.kinect;
 // export const importLibs = () => {
 //     console.log(kinect_stream, electron);
 // }
+
+export const fs = window.files;
