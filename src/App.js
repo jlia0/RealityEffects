@@ -12,7 +12,7 @@ import {
     Stats,
     TransformControls,
     GizmoHelper,
-    GizmoViewport, Html, Icosahedron, Text, Billboard, QuadraticBezierLine, Ring, Sphere, Trail, Effects
+    GizmoViewport, Html, Icosahedron, Text, Billboard, QuadraticBezierLine, Ring, Sphere, Trail, Effects, Environment
 } from "@react-three/drei";
 import {BufferAttribute, Mesh} from "three";
 import * as THREE from "three";
@@ -49,8 +49,8 @@ import {getRandomInt} from "./utils/HelperFunctions";
 import {Distance} from "./Components/Distance";
 import {Pos} from "./Components/Pos";
 import {Marker} from "./Components/Marker";
-import { FaMapMarkerAlt } from 'react-icons/fa'
-
+import {FaMapMarkerAlt} from 'react-icons/fa'
+import {LightSaber} from "./Components/Models/LightSaber";
 
 
 extend({EffectComposer, AfterimagePass})
@@ -615,15 +615,18 @@ function App() {
                         )
                     }
 
+                    {/*<Environment files="https://vazxmixjsiawhamofees.supabase.co/storage/v1/object/public/hdris/noon-grass/noon_grass_1k.hdr" background />*/}
+
+
 
                     <Selection>
                         <EffectComposer multisampling={0} autoClear={false}>
-                            <SelectiveBloom mipmapBlur radius={0.75} lights={[lightRef]} luminanceThreshold={0.2}
-                                            luminanceSmoothing={0.025} intensity={6}/>
+                            <SelectiveBloom mipmapBlur radius={0.75} lights={[lightRef]} luminanceThreshold={0.1}
+                                            luminanceSmoothing={0.001} intensity={6}/>
                         </EffectComposer>
 
                         <Select enabled={true}>
-
+                            <LightSaber scale={20} position={[0, 0, 100]}/>
 
                             <DreiSelect onChange={setSelected}>
 

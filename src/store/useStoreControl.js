@@ -18,6 +18,7 @@ export const useStoreColor = create((set) => ({
     colors: [], addColor: (color) => set((state) => ({colors: [...state.colors, color]})),
 }))
 
+export const useStorePose = create((set) => ({image: null, setImage: (image) => set({image})}))
 
 export let dynamicSpheres = []
 
