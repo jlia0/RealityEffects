@@ -4,8 +4,6 @@ const opencv = require('../realityedit/public/opencv');
 const KinectAzure = new Kinect();
 const fs = require('fs')
 
-let KinectData = null;
-
 if (KinectAzure.open()) {
 
     KinectAzure.startCameras({
@@ -16,9 +14,6 @@ if (KinectAzure.open()) {
         // include_depth_to_color: true
     })
 
-    KinectAzure.startListening((data) => {
-        KinectData = data
-    })
 } else {
     console.log('kinect not open')
 }
@@ -29,6 +24,13 @@ const {contextBridge} = require('electron')
 
 contextBridge.exposeInMainWorld('myAPI', {
     require: (callback) => window.require(callback),
-    data: KinectData,
+    startListening: (callback) => {
+        KinectAzure.startListening((data) => {
+            const depth = Buffer.from(data.depthImageFrame.imageData)
+            const color = Buffer.from(data.colorToDepthImageFrame.imageData)
+
+            callback(depth, color)
+        })
+    },
     opencv: opencv
 })

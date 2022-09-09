@@ -23,3 +23,16 @@ export async function readImage(id) {
 
     return [color, depth]
 }
+
+export const renderBGRA32ColorFrame = (ctx, canvasImageData, imageData) => {
+    const newPixelData = imageData;
+    const pixelArray = canvasImageData.data;
+    for (let i = 0; i < canvasImageData.data.length; i += 4) {
+        pixelArray[i] = newPixelData[i + 2];
+        pixelArray[i + 1] = newPixelData[i + 1];
+        pixelArray[i + 2] = newPixelData[i];
+        pixelArray[i + 3] = 0xff;
+    }
+    ctx.putImageData(canvasImageData, 0, 0);
+
+};

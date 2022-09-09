@@ -1,5 +1,15 @@
 import './App.css';
-import React, {forwardRef, Fragment, useCallback, useContext, useEffect, useMemo, useRef, useState} from "react";
+import React, {
+    createRef,
+    forwardRef,
+    Fragment,
+    useCallback,
+    useContext,
+    useEffect,
+    useMemo,
+    useRef,
+    useState
+} from "react";
 import {Canvas, extend, useFrame, useThree} from "@react-three/fiber";
 import {button, folder, useControls} from 'leva'
 import {
@@ -18,7 +28,6 @@ import * as THREE from "three";
 import {
     dataCallback,
     fs,
-    startListening
 } from "./static/KinectStream";
 import state from './static/state';
 import {Bloom, EffectComposer, Outline, Selection, Select, SelectiveBloom} from "@react-three/postprocessing";
@@ -30,8 +39,8 @@ import {
     dynamicSpheres,
     dynamicStore,
     resetDynamicSpheres,
-    useStoreColor,
-    useStoreControl, useStorePose,
+    useStoreColor, useStoreColorD,
+    useStoreControl, useStoreDepthD, useStorePose,
     useStoreTracking
 } from "./store/useStoreControl";
 import Iframe from "react-iframe";
@@ -42,14 +51,15 @@ import {ClickableSphere} from "./Components/ClickableSphere";
 import {Angle} from "./Components/Angle";
 import create from "zustand";
 import {Label} from "./Components/Label";
-import {getRandomInt, readImage} from "./utils/HelperFunctions";
+import {getRandomInt, readImage, renderBGRA32ColorFrame} from "./utils/HelperFunctions";
 import {Distance} from "./Components/Distance";
 import {Pos} from "./Components/Pos";
 import {Marker} from "./Components/Marker";
 import {FaMapMarkerAlt} from 'react-icons/fa'
 import {LightSaber} from "./Components/Models/LightSaber";
-import {PoseTracking} from "./utils/Pose";
+// import {PoseTracking} from "./utils/Pose";
 import {Post} from "./Components/AfterImage";
+import * as PoseMediaPipe from "@mediapipe/pose";
 
 // let cv = opencv
 // let kinect = KinectAzure
@@ -63,74 +73,17 @@ const sizes = {
     height: window.innerHeight
 };
 
+const pose = new PoseMediaPipe.Pose({
+    locateFile: (file) => {
+        return `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`;
+    }
+});
 
 const DEPTH_WIDTH = 640;
 const DEPTH_HEIGHT = 576;
 
 const numPoints = DEPTH_WIDTH * DEPTH_HEIGHT;
 
-const KinectPoints = () => {
-    const refPoints = useRef();
-
-    const [positions, colors] = useMemo(() => {
-        let positions = [],
-            colors = []
-
-        for (let i = 0; i < numPoints; i++) {
-            const x = (i % DEPTH_WIDTH) - DEPTH_WIDTH * 0.5;
-            const y = DEPTH_HEIGHT / 2 - Math.floor(i / DEPTH_WIDTH);
-            positions.push(x);
-            positions.push(y);
-            positions.push(0);
-
-            colors.push(0);
-            colors.push(0);
-            colors.push(0);
-        }
-
-        return [new Float32Array(positions), new Float32Array(colors)]
-    }, [])
-
-
-    useFrame(() => {
-
-        console.log(window.myAPI.data)
-
-        if (refPoints.current && state.requireUpdate) {
-            // manually inject numbers into property. so that it won't trigger re-render.
-            const pos = refPoints.current.geometry.getAttribute('position');
-            const col = refPoints.current.geometry.getAttribute('color');
-            // console.log(pos, col)
-
-            for (let i = 0; i <= state.points.length; i++) {
-                pos.array[i] = state.points[i]
-            }
-            for (let i = 0; i <= state.colors.length; i++) {
-                col.array[i] = state.colors[i]
-            }
-
-            refPoints.current.geometry.setAttribute('position', pos);
-            refPoints.current.geometry.setAttribute('color', col);
-
-            refPoints.current.geometry.attributes.position.needsUpdate = true;
-            refPoints.current.geometry.attributes.color.needsUpdate = true;
-
-            state.requireUpdate = false;
-        }
-
-
-    });
-
-
-    return (<points ref={refPoints}>
-        <bufferGeometry>
-            <bufferAttribute attach={"attributes-position"} args={[positions, 3]}/>
-            <bufferAttribute attach={"attributes-color"} args={[colors, 3]}/>
-        </bufferGeometry>
-        {/*attach="material" sizeAttenuation={true}*/}
-        <pointsMaterial transparent={true} vertexColors={true} size={3}/>
-    </points>);
-}
 
 function TrailScene() {
     const sphere = useRef(null);
@@ -179,6 +132,7 @@ function App() {
     const {open, close, isSupported} = useEyeDropper()
     const [error, setError] = useState()
 
+
     const [pos, setPos] = useState([])
     const [dist, setDist] = useState([])
     const [angles, setAngles] = useState([])
@@ -189,11 +143,57 @@ function App() {
 
 
     const lightRef = useRef()
+    const refPoints = useRef();
+    const canvasRef = useRef()
+    const bindingOpions = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40]
+
 
     const {positions, addTracker, updateTracker, deleteAll} = useStoreTracking()
     const {image, setImage} = useStorePose()
     const {colors, addColor} = useStoreColor()
 
+    const sphereRefs = useRef(bindingOpions.map(() => createRef()))
+
+    let flag = false
+
+    function onResults(results) {
+        if (results) {
+            const landmarks = results.poseLandmarks
+            if (landmarks !== undefined && landmarks) {
+
+                // sphereRefs.current.map((ref) => console.log(ref))
+
+                for (let i = 0; i < landmarks.length; i++) {
+                    const landmark = landmarks[i]
+                    if (landmark.y <= 1 && landmark.visibility >= 0.65) {
+                        const x = Math.floor(landmark.x * DEPTH_WIDTH)
+                        const y = Math.floor(landmark.y * DEPTH_HEIGHT)
+                        const pos = Math.floor(DEPTH_WIDTH * y + x)
+                        const pos_arr = refPoints.current.geometry.getAttribute('position').array
+                        const z = pos_arr[pos * 3 + 2]
+                        // console.log(landmark, x, y, z)
+                        // updateTracker(i, [x, y, z])
+                        sphereRefs.current[i].current.position.x = x
+                        sphereRefs.current[i].current.position.y = y
+                        sphereRefs.current[i].current.position.z = z
+
+                        // console.log(sphereRefs.current[i])
+
+
+                    }
+
+                }
+            }
+        }
+    }
+
+    async function onTimerTick() {
+        try {
+            await pose.send({image: canvasRef.current})
+        } catch (e) {
+            console.log(e)
+        }
+    }
 
     useEffect(() => {
         // readImage('pool-1').then((rst) => {
@@ -202,7 +202,9 @@ function App() {
         //     let newColorData = rst[0];
         //     let newDepthData = rst[1];
         //
-        //     setImage(newColorData)
+        //     console.log(newColorData)
+        //
+        //     // setImage(newColorData)
         //
         //     let pos = [];
         //     let col = [];
@@ -245,11 +247,11 @@ function App() {
         //
         // })
 
-
         try {
-
             let pos = [];
             let col = [];
+
+            console.log('arr')
 
             for (let i = 0; i < numPoints; i++) {
                 const x = (i % DEPTH_WIDTH) - DEPTH_WIDTH * 0.5;
@@ -263,45 +265,94 @@ function App() {
                 col.push(0);
             }
 
+            if (!flag) {
+                flag = !flag
 
-            // window.myAPI.listen((data) => {
-            //
-            //     console.log(data)
-            //
-            //     let pointIndex = 0;
-            //
-            //     const newDepthData = Buffer.from(data.depthImageFrame.imageData);
-            //     const newColorData = Buffer.from(data.colorToDepthImageFrame.imageData);
-            //
-            //     setImage(newColorData)
-            //
-            //     console.log(newDepthData.length)
-            //
-            //     for (let i = 0; i < newDepthData.length; i += 2) {
-            //
-            //         const depthValue = newDepthData[i + 1] << 8 | newDepthData[i];
-            //
-            //         const b = newColorData[pointIndex * 4 + 0];
-            //         const g = newColorData[pointIndex * 4 + 1];
-            //         const r = newColorData[pointIndex * 4 + 2];
-            //
-            //         if (depthValue > 500 && depthValue < 4000) {
-            //             pos[pointIndex * 3 + 2] = depthValue / 3;
-            //         } else {
-            //             pos[pointIndex * 3 + 2] = Number.MAX_VALUE;
-            //         }
-            //
-            //         col[pointIndex * 3 + 0] = r / 255;
-            //         col[pointIndex * 3 + 1] = g / 255;
-            //         col[pointIndex * 3 + 2] = b / 255;
-            //
-            //         pointIndex++;
-            //     }
-            //
-            //     state.points = new Float32Array([...pos]);
-            //     state.colors = new Float32Array([...col]);
-            //     state.requireUpdate = true;
-            // });
+                pose.setOptions({
+                    modelComplexity: 1,
+                    smoothLandmarks: true,
+                    enableSegmentation: false,
+                    smoothSegmentation: false,
+                    minDetectionConfidence: 0.5,
+                    minTrackingConfidence: 0.5
+                });
+                pose.onResults(onResults);
+
+                deleteAll()
+
+                // let bindings = []
+
+                for (let i = 0; i < 33; i++) {
+                    addTracker([0, 0, 0])
+                    // bindings.push(i)
+                }
+
+                console.log(useStoreTracking.getState().positions)
+
+                setTimeout(async () => {
+                    try {
+                        await pose.send({image: canvasRef.current})
+                    } catch (e) {
+                        console.log(e)
+                    }
+                }, 5000)
+
+
+                console.log('once')
+
+                const ctx = canvasRef.current.getContext('2d');
+                ctx.width = 640
+                ctx.height = 576
+                let colorToDepthImageData = ctx.createImageData(640, 576);
+
+                window.myAPI.startListening((depth, color) => {
+                    let pointIndex = 0;
+
+                    let newDepthData = depth
+                    let newColorData = color
+
+                    renderBGRA32ColorFrame(ctx, colorToDepthImageData, color)
+
+
+                    for (let i = 0; i < newDepthData.length; i += 2) {
+
+                        const depthValue = newDepthData[i + 1] << 8 | newDepthData[i];
+
+                        const b = newColorData[pointIndex * 4 + 0];
+                        const g = newColorData[pointIndex * 4 + 1];
+                        const r = newColorData[pointIndex * 4 + 2];
+
+                        if (depthValue > 500 && depthValue < 4000) {
+                            pos[pointIndex * 3 + 2] = depthValue / 3;
+                        } else {
+                            pos[pointIndex * 3 + 2] = 9999;
+                        }
+
+                        col[pointIndex * 3 + 0] = r / 255;
+                        col[pointIndex * 3 + 1] = g / 255;
+                        col[pointIndex * 3 + 2] = b / 255;
+
+                        pointIndex++;
+                    }
+
+                    if (refPoints) {
+                        const pos_ref = refPoints.current.geometry.getAttribute('position');
+                        const col_ref = refPoints.current.geometry.getAttribute('color');
+                        // console.log(pos, col)
+
+                        for (let i = 0; i <= pos.length; i++) {
+                            pos_ref.array[i] = pos[i]
+                            col_ref.array[i] = col[i]
+                        }
+
+                        refPoints.current.geometry.setAttribute('position', pos_ref);
+                        refPoints.current.geometry.setAttribute('color', col_ref);
+
+                        refPoints.current.geometry.attributes.position.needsUpdate = true;
+                        refPoints.current.geometry.attributes.color.needsUpdate = true;
+                    }
+                });
+            }
 
 
         } catch (e) {
@@ -320,6 +371,10 @@ function App() {
                     const pos = positions[i]
                     updateTracker(i, [pos[0] + getRandomInt(-50, 50), pos[1] + getRandomInt(-50, 50), pos[2] + getRandomInt(-50, 100)])
                 }
+            }),
+            'Body Tracking': button((get) => {
+                setTimeout(() => setInterval(onTimerTick, 100), 2000)
+
             })
         }),
         'Tracking': folder({
@@ -347,7 +402,7 @@ function App() {
             }),
         }),
         'Annotation': folder({
-            'A_Binding': {options: ['0', '1', '2', '3']},
+            'A_Binding': {options: bindingOpions},
             Text: '',
             'A_Position': [0, 0, 0],
             'Add Static Label': button((get) => {
@@ -445,12 +500,71 @@ function App() {
 
     }))
 
+    const KinectPoints = () => {
+
+        const [positions, colors] = useMemo(() => {
+            let positions = [],
+                colors = []
+
+            for (let i = 0; i < numPoints; i++) {
+                const x = (i % DEPTH_WIDTH) - DEPTH_WIDTH * 0.5;
+                const y = DEPTH_HEIGHT / 2 - Math.floor(i / DEPTH_WIDTH);
+                positions.push(x);
+                positions.push(y);
+                positions.push(0);
+
+                colors.push(0);
+                colors.push(0);
+                colors.push(0);
+            }
+
+            return [new Float32Array(positions), new Float32Array(colors)]
+        }, [])
+
+        // useFrame(() => {
+        //     if (refPoints.current) {
+        //         const pointD = useStoreDepthD.getState().depthdata
+        //         const colorD = useStoreColorD.getState().colordata
+        //         // manually inject numbers into property. so that it won't trigger re-render.
+        //         const pos = refPoints.current.geometry.getAttribute('position');
+        //         const col = refPoints.current.geometry.getAttribute('color');
+        //         // console.log(pos, col)
+        //
+        //         for (let i = 0; i <= pointD.length; i++) {
+        //             pos.array[i] = pointD[i]
+        //             col.array[i] = colorD[i]
+        //         }
+        //
+        //         refPoints.current.geometry.setAttribute('position', pos);
+        //         refPoints.current.geometry.setAttribute('color', col);
+        //
+        //         refPoints.current.geometry.attributes.position.needsUpdate = true;
+        //         refPoints.current.geometry.attributes.color.needsUpdate = true;
+        //
+        //         // state.requireUpdate = false;
+        //     }
+        //
+        //
+        // });
+
+
+        return (<points ref={refPoints}>
+            <bufferGeometry>
+                <bufferAttribute attach={"attributes-position"} args={[positions, 3]}/>
+                <bufferAttribute attach={"attributes-color"} args={[colors, 3]}/>
+            </bufferGeometry>
+            {/*attach="material" sizeAttenuation={true}*/}
+            <pointsMaterial transparent={true} vertexColors={true} size={2}/>
+        </points>);
+    }
+
 
     return (
         <div className="App">
+            <canvas hidden={true} ref={canvasRef} width={640} height={576}/>
             <div style={{width: "100vw", height: "100vh"}}>
                 <Canvas
-                    pixelRatio={window.devicePixelRatio}
+                    // pixelRatio={window.devicePixelRatio}
                     onPointerMissed={() => setTarget(null)}
                     camera={{
                         fov: 90,
@@ -460,8 +574,6 @@ function App() {
                         position: [0, 0, -1000]
                     }}
                 >
-                    <PoseTracking/>
-
                     <ambientLight ref={lightRef} intensity={0.5}/>
 
                     <color attach="background" args={["#000000"]}/>
@@ -478,9 +590,16 @@ function App() {
                     {/*    </Sphere>*/}
                     {/*</group>*/}
 
+                    {/*{*/}
+                    {/*    colors.map((color, index) => {*/}
+                    {/*        return <ClickableSphere index={index}/>*/}
+                    {/*    })*/}
+                    {/*}*/}
+
+
                     {
-                        colors.map((color, index) => {
-                            return <ClickableSphere index={index}/>
+                        bindingOpions.map((i, index) => {
+                            return <ClickableSphere key={index} ref={sphereRefs.current[index]}/>
                         })
                     }
 
@@ -535,7 +654,7 @@ function App() {
 
                                 {
                                     labels.map((label, count) => {
-                                            return <Label position={label.Position} text={label.Text}
+                                            return <Label key={count} position={label.Position} text={label.Text}
                                                           binding={label.Binding}/>
                                         }
                                     )
@@ -543,7 +662,8 @@ function App() {
 
                                 {
                                     mLines.map((mLine, index) => {
-                                        return <DraggableLine defaultStart={[0, 0, 0]} defaultEnd={[0, 0, 100]}/>
+                                        return <DraggableLine key={index} defaultStart={[0, 0, 0]}
+                                                              defaultEnd={[0, 0, 100]}/>
 
                                     })
                                 }
@@ -551,6 +671,7 @@ function App() {
                                 {
                                     torus.map((tor, index) => {
                                         return <TorusComponent
+                                            key={index}
                                             position={tor.Position}
                                             radius={50}
                                             tube={2}

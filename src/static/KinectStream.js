@@ -1,7 +1,8 @@
 const {myAPI} = window
 
 export const fs = myAPI.require('fs').promises;
-export const opencv = myAPI.opencv
+// export const opencv = myAPI.opencv
+// export const startListening = myAPI.startListening
 // export let KinectData = myAPI.KinectData
 // export const listen = myAPI.listen
 

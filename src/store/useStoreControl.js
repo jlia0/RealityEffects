@@ -3,6 +3,10 @@ import {exp} from "three/examples/jsm/nodes/shadernode/ShaderNodeBaseElements";
 
 export const useStoreControl = create((set) => ({target: null, setTarget: (target) => set({target})}))
 
+// export const useStoreColorD = create((set) => ({colordata: null, setColor: (colordata) => set({colordata})}))
+//
+// export const useStoreDepthD = create((set) => ({depthdata: null, setDepth: (depthdata) => set({depthdata})}))
+
 export const useStoreTracking = create((set) => ({
     positions: [],
     addTracker: (position) => set((state) => ({positions: [...state.positions, position]})),
