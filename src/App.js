@@ -1,6 +1,5 @@
 import './App.css';
 import React, {forwardRef, Fragment, useCallback, useContext, useEffect, useMemo, useRef, useState} from "react";
-// import {KinectAzure} from "./static/KinectStream";
 import {Canvas, extend, useFrame, useThree} from "@react-three/fiber";
 import {button, folder, useControls} from 'leva'
 import {
@@ -16,19 +15,17 @@ import {
 } from "@react-three/drei";
 import {BufferAttribute, Mesh} from "three";
 import * as THREE from "three";
-import {fs, KinectAzure, opencv} from "./static/KinectStream";
+import {
+    dataCallback,
+    fs,
+    startListening
+} from "./static/KinectStream";
 import state from './static/state';
-import {func} from "three/examples/jsm/nodes/shadernode/ShaderNodeBaseElements";
 import {Bloom, EffectComposer, Outline, Selection, Select, SelectiveBloom} from "@react-three/postprocessing";
-// import {RenderPass} from "three/examples/jsm/postprocessing/RenderPass";
-// import {UnrealBloomPass} from "three/examples/jsm/postprocessing/UnrealBloomPass";
+
 import {AfterimagePass} from 'three-stdlib'
-import {Pool_1, Pool_2} from "./Figures/pool";
-import {RingComponent} from "./Components/Ring";
-import {Object_1, Object_2} from "./Figures/object";
+
 import {TorusComponent} from "./Components/Torus";
-import {CircleComponent} from "./Components/Circle";
-import {LineComponent} from "./Components/Line";
 import {
     dynamicSpheres,
     dynamicStore,
@@ -54,18 +51,17 @@ import {LightSaber} from "./Components/Models/LightSaber";
 import {PoseTracking} from "./utils/Pose";
 import {Post} from "./Components/AfterImage";
 
+// let cv = opencv
+// let kinect = KinectAzure
+
 
 extend({EffectComposer, AfterimagePass})
-
-const cv = opencv
-const kinect = new KinectAzure()
 
 
 const sizes = {
     width: window.innerWidth,
     height: window.innerHeight
 };
-
 
 
 const DEPTH_WIDTH = 640;
@@ -97,6 +93,8 @@ const KinectPoints = () => {
 
 
     useFrame(() => {
+
+        console.log(window.myAPI.data)
 
         if (refPoints.current && state.requireUpdate) {
             // manually inject numbers into property. so that it won't trigger re-render.
@@ -247,74 +245,64 @@ function App() {
         //
         // })
 
-        const depthModeRange = kinect.getDepthModeRange(KinectAzure.K4A_DEPTH_MODE_NFOV_UNBINNED);
 
         try {
-            if (kinect && kinect.open()) {
 
-                let pos = [];
-                let col = [];
+            let pos = [];
+            let col = [];
 
-                for (let i = 0; i < numPoints; i++) {
-                    const x = (i % DEPTH_WIDTH) - DEPTH_WIDTH * 0.5;
-                    const y = DEPTH_HEIGHT / 2 - Math.floor(i / DEPTH_WIDTH);
-                    pos.push(x);
-                    pos.push(y);
-                    pos.push(0);
+            for (let i = 0; i < numPoints; i++) {
+                const x = (i % DEPTH_WIDTH) - DEPTH_WIDTH * 0.5;
+                const y = DEPTH_HEIGHT / 2 - Math.floor(i / DEPTH_WIDTH);
+                pos.push(x);
+                pos.push(y);
+                pos.push(0);
 
-                    col.push(0);
-                    col.push(0);
-                    col.push(0);
-                }
-
-
-                kinect.startCameras({
-                    depth_mode: KinectAzure.K4A_DEPTH_MODE_NFOV_UNBINNED,
-                    color_format: KinectAzure.K4A_IMAGE_FORMAT_COLOR_BGRA32,
-                    color_resolution: KinectAzure.K4A_COLOR_RESOLUTION_720P,
-                    include_color_to_depth: true,
-                    // include_depth_to_color: true
-                });
-
-                kinect.startListening((data) => {
-
-                    let pointIndex = 0;
-
-                    const newDepthData = Buffer.from(data.depthImageFrame.imageData);
-                    const newColorData = Buffer.from(data.colorToDepthImageFrame.imageData);
-
-                    setImage(newColorData)
-
-                    console.log(newDepthData.length)
-
-                    for (let i = 0; i < newDepthData.length; i += 2) {
-
-                        const depthValue = newDepthData[i + 1] << 8 | newDepthData[i];
-
-                        const b = newColorData[pointIndex * 4 + 0];
-                        const g = newColorData[pointIndex * 4 + 1];
-                        const r = newColorData[pointIndex * 4 + 2];
-
-                        if (depthValue > depthModeRange.min && depthValue < depthModeRange.max) {
-                            pos[pointIndex * 3 + 2] = depthValue / 3;
-                        } else {
-                            pos[pointIndex * 3 + 2] = Number.MAX_VALUE;
-                        }
-
-                        col[pointIndex * 3 + 0] = r / 255;
-                        col[pointIndex * 3 + 1] = g / 255;
-                        col[pointIndex * 3 + 2] = b / 255;
-
-                        pointIndex++;
-                    }
-
-                    state.points = new Float32Array([...pos]);
-                    state.colors = new Float32Array([...col]);
-                    state.requireUpdate = true;
-                });
-            } else {
-                console.log('kinect not open')
+                col.push(0);
+                col.push(0);
+                col.push(0);
             }
+
+
+            // window.myAPI.listen((data) => {
+            //
+            //     console.log(data)
+            //
+            //     let pointIndex = 0;
+            //
+            //     const newDepthData = Buffer.from(data.depthImageFrame.imageData);
+            //     const newColorData = Buffer.from(data.colorToDepthImageFrame.imageData);
+            //
+            //     setImage(newColorData)
+            //
+            //     console.log(newDepthData.length)
+            //
+            //     for (let i = 0; i < newDepthData.length; i += 2) {
+            //
+            //         const depthValue = newDepthData[i + 1] << 8 | newDepthData[i];
+            //
+            //         const b = newColorData[pointIndex * 4 + 0];
+            //         const g = newColorData[pointIndex * 4 + 1];
+            //         const r = newColorData[pointIndex * 4 + 2];
+            //
+            //         if (depthValue > 500 && depthValue < 4000) {
+            //             pos[pointIndex * 3 + 2] = depthValue / 3;
+            //         } else {
+            //             pos[pointIndex * 3 + 2] = Number.MAX_VALUE;
+            //         }
+            //
+            //         col[pointIndex * 3 + 0] = r / 255;
+            //         col[pointIndex * 3 + 1] = g / 255;
+            //         col[pointIndex * 3 + 2] = b / 255;
+            //
+            //         pointIndex++;
+            //     }
+            //
+            //     state.points = new Float32Array([...pos]);
+            //     state.colors = new Float32Array([...col]);
+            //     state.requireUpdate = true;
+            // });
+
 
         } catch (e) {
             console.log(e)

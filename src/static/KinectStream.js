@@ -1,6 +1,9 @@
-
 const {myAPI} = window
 
 export const fs = myAPI.require('fs').promises;
-export const KinectAzure = myAPI.require('kinect-azure')
-export const opencv = myAPI.require('../realityedit/public/opencv')
+export const opencv = myAPI.opencv
+// export let KinectData = myAPI.KinectData
+// export const listen = myAPI.listen
+
+
+// console.log(fs, myAPI.getDepthModeRange, myAPI.open, myAPI.startCameras, myAPI.startListening)

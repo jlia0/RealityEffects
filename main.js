@@ -10,10 +10,10 @@ function createWindow () {
         icon: nativeImage.createFromPath('src/public/favicon.ico'), // "string" || nativeImage.createFromPath('src/image/icons/256x256.ico')从位于 path 的文件创建新的 NativeImage 实例
         webPreferences: { // 网页功能设置
             nodeIntegration: true, // 是否启用node集成 渲染进程的内容有访问node的能力
-            // webviewTag: true, // 是否使用<webview>标签 在一个独立的 frame 和进程里显示外部 web 内容
+            webviewTag: true, // 是否使用<webview>标签 在一个独立的 frame 和进程里显示外部 web 内容
             webSecurity: false, // 禁用同源策略
-            // nodeIntegrationInWorker: true,
-            // nodeIntegrationInSubFrames: true, // 是否允许在子页面(iframe)或子窗口(child window)中集成Node.js
+            nodeIntegrationInWorker: true,
+            nodeIntegrationInSubFrames: true, // 是否允许在子页面(iframe)或子窗口(child window)中集成Node.js
             preload: path.resolve(__dirname, './preload.js'),
             // contextIsolation: false
         }
