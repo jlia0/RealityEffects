@@ -11,7 +11,7 @@ export const useStoreTracking = create((set) => ({
         positionsArr[index] = pos
         return {positions: positionsArr}
     }),
-    deleteAll: () => set({}, true)
+    deleteAll: () => set((state) => ({positions: []})),
 }))
 
 export const useStoreColor = create((set) => ({

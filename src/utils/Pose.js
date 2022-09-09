@@ -1,22 +1,24 @@
-import {Pose} from "@mediapipe/pose";
 import {useFrame} from "@react-three/fiber";
-import {useEffect} from "react";
-import {useStorePose} from "../store/useStoreControl";
+import {useEffect, useRef} from "react";
+import {useStorePose, useStoreTracking} from "../store/useStoreControl";
+import * as PoseMediaPipe from "@mediapipe/pose";
 
-const pose = new Pose({
+
+export const pose = new PoseMediaPipe.Pose({
     locateFile: (file) => {
         return `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`;
     }
 });
 
-const renderBGRA32ColorFrame = (imageFrame) => {
+
+const renderBGRA32ColorFrame = (imageData) => {
     let canvas = document.createElement('canvas');
     let ctx = canvas.getContext('2d');
-    canvas.width = imageFrame.width;
-    canvas.height = imageFrame.height;
+    canvas.width = 640;
+    canvas.height = 576;
     let canvasImageData = ctx.createImageData(canvas.width, canvas.height)
 
-    const newPixelData = Buffer.from(imageFrame.imageData);
+    const newPixelData = imageData;
     const pixelArray = canvasImageData.data;
 
     for (let i = 0; i < canvasImageData.data.length; i += 4) {
@@ -34,68 +36,68 @@ const renderBGRA32ColorFrame = (imageFrame) => {
 };
 
 export const PoseTracking = () => {
+    const {positions, addTracker, updateTracker, deleteAll} = useStoreTracking()
+    const {image, setImage} = useStorePose()
 
     function onResults(results) {
-        if (!results.poseLandmarks) {
-            // grid.updateLandmarks([]);
-            return;
+        const pos = useStoreTracking.getState().positions
+        if (pos.length >= 33) {
+            console.log(results)
         }
 
-        console.log(results)
 
-        // canvasCtx.save();
-        // canvasCtx.clearRect(0, 0, canvasElement.width, canvasElement.height);
-        // canvasCtx.drawImage(results.segmentationMask, 0, 0,
-        //     canvasElement.width, canvasElement.height);
-        //
-        // // Only overwrite existing pixels.
-        // canvasCtx.globalCompositeOperation = 'source-in';
-        // canvasCtx.fillStyle = '#00FF00';
-        // canvasCtx.fillRect(0, 0, canvasElement.width, canvasElement.height);
-        //
-        // // Only overwrite missing pixels.
-        // canvasCtx.globalCompositeOperation = 'destination-atop';
-        // canvasCtx.drawImage(
-        //     results.image, 0, 0, canvasElement.width, canvasElement.height);
-        //
-        // canvasCtx.globalCompositeOperation = 'source-over';
-        // drawConnectors(canvasCtx, results.poseLandmarks, POSE_CONNECTIONS,
-        //     {color: '#00FF00', lineWidth: 4});
-        // drawLandmarks(canvasCtx, results.poseLandmarks,
-        //     {color: '#FF0000', lineWidth: 2});
-        // canvasCtx.restore();
-        //
-        // grid.updateLandmarks(results.poseWorldLandmarks);
     }
 
     useEffect(() => {
-        pose.setOptions({
-            modelComplexity: 1,
-            smoothLandmarks: true,
-            enableSegmentation: true,
-            smoothSegmentation: true,
-            minDetectionConfidence: 0.5,
-            minTrackingConfidence: 0.5
-        });
-        pose.onResults(onResults);
+        if (pose) {
+            pose.setOptions({
+                modelComplexity: 1,
+                smoothLandmarks: true,
+                enableSegmentation: true,
+                smoothSegmentation: true,
+                minDetectionConfidence: 0.5,
+                minTrackingConfidence: 0.5
+            });
+            pose.onResults(onResults);
+
+            deleteAll()
+            for (let i = 0; i < 33; i++) {
+                addTracker([0, 0, 0])
+            }
+            console.log(useStoreTracking.getState().positions)
+
+            const imageFrame = useStorePose.getState().image
+
+            if (imageFrame) {
+                setTimeout(() => setInterval(onTimerTick, 100), 500)
+            }
+        }
     }, [])
 
+    async function onTimerTick() {
+        try {
+            const imageFrame = useStorePose.getState().image
+            // if (imageFrame !== null && pose !== null) {
+            const imageElement = renderBGRA32ColorFrame(imageFrame)
+            await pose.send({image: imageElement})
+            // }
+        } catch (e) {
+            console.log(e)
+        }
 
-    useFrame(async () => {
-        const imageFrame = useStorePose.getState().image
-        const img = renderBGRA32ColorFrame(imageFrame)
-        await pose.send({image: img})
-    })
+    }
 
-    return <>
-    </>
 
-    // const camera = new Camera(videoElement, {
-    //     onFrame: async () => {
-    //         await pose.send({image: videoElement});
-    //     },
-    //     width: 1280,
-    //     height: 720
-    // });
+    return <></>
+
+    // <div className={"VideoLayer"}>
+    //
+    //     <Webcam id={"webcam"} className={"abs_cam"} ref={videoRef} mirrored={true}
+    //             width={window.innerWidth} height={window.innerHeight}
+    //             videoConstraints={{
+    //                 width: window.innerWidth,
+    //                 height: window.innerHeight,
+    //             }}/>
+    // </div>
 
 }

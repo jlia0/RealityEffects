@@ -1,10 +1,6 @@
-// export const KinectAzure = window.kinect;
 
-// const electron = window.require('electron')
+const {myAPI} = window
 
-//
-// export const importLibs = () => {
-//     console.log(kinect_stream, electron);
-// }
-
-export const fs = window.files;
+export const fs = myAPI.require('fs').promises;
+export const KinectAzure = myAPI.require('kinect-azure')
+export const opencv = myAPI.require('../realityedit/public/opencv')
