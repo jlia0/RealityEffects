@@ -373,7 +373,7 @@ function App() {
                 }
             }),
             'Body Tracking': button((get) => {
-                setTimeout(() => setInterval(onTimerTick, 100), 2000)
+                setTimeout(() => setInterval(onTimerTick, 33), 2000)
 
             })
         }),
@@ -554,7 +554,7 @@ function App() {
                 <bufferAttribute attach={"attributes-color"} args={[colors, 3]}/>
             </bufferGeometry>
             {/*attach="material" sizeAttenuation={true}*/}
-            <pointsMaterial transparent={true} vertexColors={true} size={2}/>
+            <pointsMaterial transparent={true} vertexColors={true} size={2.5}/>
         </points>);
     }
 

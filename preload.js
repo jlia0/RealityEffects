@@ -28,7 +28,6 @@ contextBridge.exposeInMainWorld('myAPI', {
         KinectAzure.startListening((data) => {
             const depth = Buffer.from(data.depthImageFrame.imageData)
             const color = Buffer.from(data.colorToDepthImageFrame.imageData)
-
             callback(depth, color)
         })
     },
