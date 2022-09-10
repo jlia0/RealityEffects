@@ -1,9 +1,12 @@
+// opencv
+const cv = require('../realityedit/public/opencv');
+
+
+
+
+// Kinect Init
 const Kinect = require('kinect-azure')
-const opencv = require('../realityedit/public/opencv');
-
 const KinectAzure = new Kinect();
-const fs = require('fs')
-
 if (KinectAzure.open()) {
 
     KinectAzure.startCameras({
@@ -19,6 +22,7 @@ if (KinectAzure.open()) {
 }
 
 
+
 // preload with contextIsolation enabled
 const {contextBridge} = require('electron')
 
@@ -31,5 +35,10 @@ contextBridge.exposeInMainWorld('myAPI', {
             callback(depth, color)
         })
     },
-    opencv: opencv
+    opencvReady: (callback) =>{
+        cv['onRuntimeInitialized'] = () => {
+            // do all your work here
+            callback('ready')
+        };
+    }
 })

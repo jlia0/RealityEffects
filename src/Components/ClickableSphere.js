@@ -36,7 +36,7 @@ export const ClickableSphere = forwardRef(({
               onPointerOut={() => setHovered(false)}
         >
             <sphereBufferGeometry args={[6, 16, 16]}/>
-            <meshBasicMaterial color={clicked ? 'green' : 'white'}/>
+            <meshBasicMaterial color={clicked ? 'green' : 'yellow'}/>
         </mesh>
     )
 })

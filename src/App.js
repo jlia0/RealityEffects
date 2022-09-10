@@ -170,11 +170,11 @@ function App() {
                         const y = Math.floor(landmark.y * DEPTH_HEIGHT)
                         const pos = Math.floor(DEPTH_WIDTH * y + x)
                         const pos_arr = refPoints.current.geometry.getAttribute('position').array
+                        const actualX = (pos % DEPTH_WIDTH) - DEPTH_WIDTH * 0.5;
+                        const actualY = DEPTH_HEIGHT / 2 - Math.floor(pos / DEPTH_WIDTH);
                         const z = pos_arr[pos * 3 + 2]
-                        // console.log(landmark, x, y, z)
-                        // updateTracker(i, [x, y, z])
-                        sphereRefs.current[i].current.position.x = x
-                        sphereRefs.current[i].current.position.y = y
+                        sphereRefs.current[i].current.position.x = actualX
+                        sphereRefs.current[i].current.position.y = actualY
                         sphereRefs.current[i].current.position.z = z
 
                         // console.log(sphereRefs.current[i])
@@ -287,7 +287,7 @@ function App() {
                     // bindings.push(i)
                 }
 
-                console.log(useStoreTracking.getState().positions)
+                // console.log(useStoreTracking.getState().positions)
 
                 setTimeout(async () => {
                     try {
@@ -310,6 +310,7 @@ function App() {
 
                     let newDepthData = depth
                     let newColorData = color
+
 
                     renderBGRA32ColorFrame(ctx, colorToDepthImageData, color)
 
@@ -554,14 +555,14 @@ function App() {
                 <bufferAttribute attach={"attributes-color"} args={[colors, 3]}/>
             </bufferGeometry>
             {/*attach="material" sizeAttenuation={true}*/}
-            <pointsMaterial transparent={true} vertexColors={true} size={2.5}/>
+            <pointsMaterial attach="material" sizeAttenuation={true} vertexColors={true} size={3}/>
         </points>);
     }
 
 
     return (
         <div className="App">
-            <canvas hidden={true} ref={canvasRef} width={640} height={576}/>
+            <canvas hidden={true} ref={canvasRef} width={640} height={576} />
             <div style={{width: "100vw", height: "100vh"}}>
                 <Canvas
                     // pixelRatio={window.devicePixelRatio}
@@ -570,11 +571,11 @@ function App() {
                         fov: 90,
                         aspect: sizes.width / sizes.height,
                         near: 0.1,
-                        far: 10000,
+                        far: 5000,
                         position: [0, 0, -1000]
                     }}
                 >
-                    <ambientLight ref={lightRef} intensity={0.5}/>
+                    <ambientLight ref={lightRef} intensity={0.01}/>
 
                     <color attach="background" args={["#000000"]}/>
 
