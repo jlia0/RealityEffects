@@ -8,6 +8,7 @@ import {createRingBuffer} from "../utils/HelperFunctions";
 let xbuffer = createRingBuffer(2)
 let ybuffer = createRingBuffer(2)
 let zbuffer = createRingBuffer(2)
+let speedbuffer = createRingBuffer(5)
 
 const useSpeedStore = create((set) => ({speed: null, setSpeed: (speed) => set({speed})}))
 
@@ -42,7 +43,9 @@ export const Speed = ({sphere}) => {
 
             const speed_calc = Math.cbrt(delta_x * delta_x + delta_y * delta_y + delta_z * delta_z) / delta / 100
 
-            setSpeed(speed_calc)
+            speedbuffer.push(speed_calc)
+
+            setSpeed(speedbuffer.avg())
 
             htmlRef.current.position.x = speed_[0]
             htmlRef.current.position.y = speed_[1] - 20
