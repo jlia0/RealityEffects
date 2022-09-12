@@ -25,11 +25,7 @@ import {
 } from "@react-three/drei";
 import {BufferAttribute, Mesh} from "three";
 import * as THREE from "three";
-import {
-    dataCallback,
-    fs,
-} from "./static/KinectStream";
-import state from './static/state';
+
 import {Bloom, EffectComposer, Outline, Selection, Select, SelectiveBloom} from "@react-three/postprocessing";
 
 import {AfterimagePass} from 'three-stdlib'
@@ -37,11 +33,10 @@ import {AfterimagePass} from 'three-stdlib'
 import {TorusComponent} from "./Components/Torus";
 import {
     dynamicSpheres,
-    dynamicStore,
     resetDynamicSpheres,
-    useStoreColor, useStoreColorD,
-    useStoreControl, useStoreDepthD, useStorePose,
-    useStoreTracking
+    useStoreColor,
+    useStoreControl, useStorePose, useStoreSelected, useStoreTrack,
+
 } from "./store/useStoreControl";
 import Iframe from "react-iframe";
 import {DraggableLine} from "./Components/DraggableLine";
@@ -49,20 +44,19 @@ import {Panel} from "./utils/MultiLeva";
 import useEyeDropper from 'use-eye-dropper'
 import {ClickableSphere} from "./Components/ClickableSphere";
 import {Angle} from "./Components/Angle";
-import create from "zustand";
 import {Label} from "./Components/Label";
-import {getRandomInt, readImage, renderBGRA32ColorFrame} from "./utils/HelperFunctions";
+import {getRandomInt, hexToRgb, readImage, renderBGRA32ColorFrame} from "./utils/HelperFunctions";
 import {Distance} from "./Components/Distance";
 import {Pos} from "./Components/Pos";
 import {Marker} from "./Components/Marker";
 import {FaMapMarkerAlt} from 'react-icons/fa'
 import {LightSaber} from "./Components/Models/LightSaber";
-// import {PoseTracking} from "./utils/Pose";
 import {Post} from "./Components/AfterImage";
 import * as PoseMediaPipe from "@mediapipe/pose";
-
-// let cv = opencv
-// let kinect = KinectAzure
+import {ModelWrapper} from "./utils/ModelWrapper";
+import {Lab} from "./Components/Models/Lab";
+import {TrailWrapper} from "./Components/TrailWrapper";
+import {Speed} from "./Components/Speed";
 
 
 extend({EffectComposer, AfterimagePass})
@@ -85,59 +79,25 @@ const DEPTH_HEIGHT = 576;
 const numPoints = DEPTH_WIDTH * DEPTH_HEIGHT;
 
 
-function TrailScene() {
-    const sphere = useRef(null);
-    const [text, setText] = useState('(x,y,z)');
-
-    useFrame(({clock}) => {
-        const t = clock.getElapsedTime()
-
-        sphere.current.position.x = Math.sin(t) * 3
-        sphere.current.position.y = Math.cos(t) * 3
-        setText(`(${(Math.sin(t) * 3).toFixed(2)},${(Math.cos(t) * 3).toFixed(2)},100)`)
-    })
-
-    return (
-        <>
-            <Trail
-                width={2}
-                length={8}
-                color={'#F8D628'}
-                attenuation={(t) => {
-                    return t * t
-                }}
-            >
-                {/*<Sphere ref={sphere} args={[0.2, 32, 32]} position-x={0} position-y={3}>*/}
-                {/*    <meshNormalMaterial/>*/}
-                {/*</Sphere>*/}
-
-                {/*<group ref={sphere}>*/}
-                {/*    <Html scale={1} transform sprite>*/}
-                {/*        <div className="annotation" style={{background: 'green', color: 'white'}}>*/}
-                {/*            {text}*/}
-                {/*        </div>*/}
-                {/*    </Html>*/}
-                {/*</group>*/}
-
-            </Trail>
-        </>
-    )
-}
-
-
 function App() {
-    const {target, setTarget} = useStoreControl();
+    const setTarget = useStoreControl(state => state.setTarget)
+    const target = useStoreControl(state => state.target)
+
     const [selected, setSelected] = useState([])
+
 
     const {open, close, isSupported} = useEyeDropper()
     const [error, setError] = useState()
 
 
     const [pos, setPos] = useState([])
+    const [speed, setSpeed] = useState([])
     const [dist, setDist] = useState([])
     const [angles, setAngles] = useState([])
     const [labels, setLabels] = useState([])
     const [torus, setTorus] = useState([])
+    const [trail, setTrail] = useState([])
+
     const [mLines, setMLines] = useState([])
     const [marker, setMarker] = useState([])
 
@@ -146,13 +106,12 @@ function App() {
     const refPoints = useRef();
     const canvasRef = useRef()
     const bindingOpions = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40]
+    const canvasData = useRef(null)
 
-
-    const {positions, addTracker, updateTracker, deleteAll} = useStoreTracking()
-    const {image, setImage} = useStorePose()
     const {colors, addColor} = useStoreColor()
 
-    const sphereRefs = useRef(bindingOpions.map(() => createRef()))
+    const items = useStoreTrack((state) => state.items)
+
 
     let flag = false
 
@@ -160,12 +119,9 @@ function App() {
         if (results) {
             const landmarks = results.poseLandmarks
             if (landmarks !== undefined && landmarks) {
-
-                // sphereRefs.current.map((ref) => console.log(ref))
-
                 for (let i = 0; i < landmarks.length; i++) {
                     const landmark = landmarks[i]
-                    if (landmark.y <= 1 && landmark.visibility >= 0.65) {
+                    if (landmark.y <= 1 && landmark.visibility >= 0.65 && refPoints.current) {
                         const x = Math.floor(landmark.x * DEPTH_WIDTH)
                         const y = Math.floor(landmark.y * DEPTH_HEIGHT)
                         const pos = Math.floor(DEPTH_WIDTH * y + x)
@@ -173,21 +129,35 @@ function App() {
                         const actualX = (pos % DEPTH_WIDTH) - DEPTH_WIDTH * 0.5;
                         const actualY = DEPTH_HEIGHT / 2 - Math.floor(pos / DEPTH_WIDTH);
                         const z = pos_arr[pos * 3 + 2]
-                        sphereRefs.current[i].current.position.x = actualX
-                        sphereRefs.current[i].current.position.y = actualY
-                        sphereRefs.current[i].current.position.z = z
 
-                        // console.log(sphereRefs.current[i])
-
-
+                        if (z <= 1500) {
+                            useStoreTrack.getState().update(i, [actualX, actualY, z])
+                        }
                     }
-
                 }
             }
         }
     }
 
-    async function onTimerTick() {
+    console.log('render')
+
+    function onResults_Color(centerX, centerY, index) {
+        if (refPoints.current) {
+            const x = Math.floor(centerX)
+            const y = Math.floor(centerY)
+            const pos = Math.floor(DEPTH_WIDTH * y + x)
+            const pos_arr = refPoints.current.geometry.getAttribute('position').array
+            const actualX = (pos % DEPTH_WIDTH) - DEPTH_WIDTH * 0.5;
+            const actualY = DEPTH_HEIGHT / 2 - Math.floor(pos / DEPTH_WIDTH);
+            const z = pos_arr[pos * 3 + 2]
+
+            if (z <= 1500) {
+                useStoreTrack.getState().update(index + 33, [actualX, actualY, z])
+            }
+        }
+    }
+
+    async function onTimerTick_Pose() {
         try {
             await pose.send({image: canvasRef.current})
         } catch (e) {
@@ -195,63 +165,52 @@ function App() {
         }
     }
 
-    useEffect(() => {
-        // readImage('pool-1').then((rst) => {
-        //     let pointIndex = 0;
-        //
-        //     let newColorData = rst[0];
-        //     let newDepthData = rst[1];
-        //
-        //     console.log(newColorData)
-        //
-        //     // setImage(newColorData)
-        //
-        //     let pos = [];
-        //     let col = [];
-        //
-        //     for (let i = 0; i < numPoints; i++) {
-        //         const x = (i % DEPTH_WIDTH) - DEPTH_WIDTH * 0.5;
-        //         const y = DEPTH_HEIGHT / 2 - Math.floor(i / DEPTH_WIDTH);
-        //         pos.push(x);
-        //         pos.push(y);
-        //         pos.push(0);
-        //
-        //         col.push(0);
-        //         col.push(0);
-        //         col.push(0);
-        //     }
-        //
-        //     for (let i = 0; i < newDepthData.length; i += 2) {
-        //
-        //         const depthValue = newDepthData[i + 1] << 8 | newDepthData[i];
-        //
-        //         const b = newColorData[pointIndex * 4 + 0];
-        //         const g = newColorData[pointIndex * 4 + 1];
-        //         const r = newColorData[pointIndex * 4 + 2];
-        //
-        //         if (depthValue > 10 && depthValue < 5000) {
-        //             pos[pointIndex * 3 + 2] = depthValue / 3;
-        //         } else {
-        //             pos[pointIndex * 3 + 2] = Number.MAX_VALUE;
-        //         }
-        //
-        //         col[pointIndex * 3 + 0] = r / 255;
-        //         col[pointIndex * 3 + 1] = g / 255;
-        //         col[pointIndex * 3 + 2] = b / 255;
-        //
-        //         pointIndex++;
-        //     }
-        //     state.points = new Float32Array([...pos]);
-        //     state.colors = new Float32Array([...col]);
-        //     state.requireUpdate = true;
-        //
-        // })
+    const renderBGRA32ColorFrame = (ctx, canvasImageData, imageData) => {
+        const newPixelData = imageData;
+        const pixelArray = canvasImageData.data;
+        for (let i = 0; i < canvasImageData.data.length; i += 4) {
+            pixelArray[i] = newPixelData[i + 2];
+            pixelArray[i + 1] = newPixelData[i + 1];
+            pixelArray[i + 2] = newPixelData[i];
+            pixelArray[i + 3] = 0xff;
+        }
 
+        canvasData.current = canvasImageData.data
+        ctx.putImageData(canvasImageData, 0, 0);
+    };
+
+
+    async function onTimerTick_Color() {
+        try {
+            if (canvasData.current !== null) {
+                const colors = useStoreColor.getState().colors
+                const threshold = 50
+                let colors_low = []
+                let colors_high = []
+
+                for (let i = 0; i < colors.length; i++) {
+                    const color = hexToRgb(colors[i])
+                    if (color !== null) {
+                        const color_low = [color.r >= threshold ? (color.r - threshold) : 0, color.g >= threshold ? (color.g - threshold) : 0, color.b >= threshold ? (color.b - threshold) : 0, 255]
+                        const color_high = [(color.r + threshold) >= 255 ? 255 : (color.r + threshold), (color.g + threshold) >= 255 ? 255 : (color.g + threshold), (color.b + threshold) >= 255 ? 255 : (color.b + threshold), 255]
+                        colors_low.push(color_low)
+                        colors_high.push(color_high)
+                    }
+                }
+
+                if (colors_low.length > 0) {
+                    window.myAPI.detectColor(colors_low, colors_high, canvasData.current, onResults_Color)
+                }
+            }
+        } catch (e) {
+            console.log(e)
+        }
+    }
+
+    useEffect(() => {
         try {
             let pos = [];
             let col = [];
-
-            console.log('arr')
 
             for (let i = 0; i < numPoints; i++) {
                 const x = (i % DEPTH_WIDTH) - DEPTH_WIDTH * 0.5;
@@ -272,22 +231,11 @@ function App() {
                     modelComplexity: 1,
                     smoothLandmarks: true,
                     enableSegmentation: false,
-                    smoothSegmentation: false,
-                    minDetectionConfidence: 0.5,
-                    minTrackingConfidence: 0.5
+                    smoothSegmentation: true,
+                    minDetectionConfidence: 0.9,
+                    minTrackingConfidence: 0.9
                 });
                 pose.onResults(onResults);
-
-                deleteAll()
-
-                // let bindings = []
-
-                for (let i = 0; i < 33; i++) {
-                    addTracker([0, 0, 0])
-                    // bindings.push(i)
-                }
-
-                // console.log(useStoreTracking.getState().positions)
 
                 setTimeout(async () => {
                     try {
@@ -295,10 +243,8 @@ function App() {
                     } catch (e) {
                         console.log(e)
                     }
-                }, 5000)
+                }, 3000)
 
-
-                console.log('once')
 
                 const ctx = canvasRef.current.getContext('2d');
                 ctx.width = 640
@@ -311,9 +257,7 @@ function App() {
                     let newDepthData = depth
                     let newColorData = color
 
-
                     renderBGRA32ColorFrame(ctx, colorToDepthImageData, color)
-
 
                     for (let i = 0; i < newDepthData.length; i += 2) {
 
@@ -365,18 +309,14 @@ function App() {
     const [System, setSystem] = useControls(() => ({
         'Controls': folder({
             'Mode': {value: 'translate', options: ['translate', 'scale', 'rotate']},
-            'Random Update': button((get) => {
-                // update trackers
-                const positions = useStoreTracking.getState().positions
-                for (let i = 0; i < positions.length; i++) {
-                    const pos = positions[i]
-                    updateTracker(i, [pos[0] + getRandomInt(-50, 50), pos[1] + getRandomInt(-50, 50), pos[2] + getRandomInt(-50, 100)])
-                }
-            }),
             'Body Tracking': button((get) => {
-                setTimeout(() => setInterval(onTimerTick, 33), 2000)
+                setTimeout(() => setInterval(onTimerTick_Pose, 33), 3000)
 
-            })
+            }),
+            'Color Tracking': button((get) => {
+                setTimeout(() => setInterval(onTimerTick_Color, 33), 3000)
+
+            }),
         }),
         'Tracking': folder({
             'Trackers': true,
@@ -387,9 +327,7 @@ function App() {
                     .then(color => {
                         setSystem({'Pick Color': color.sRGBHex})
                         addColor(color.sRGBHex)
-                        addTracker([getRandomInt(-100, 100), getRandomInt(-100, 100), getRandomInt(0, 500)])
-                        // console.log(useStoreColor.getState().colors)
-
+                        console.log(useStoreColor.getState().colors)
                     })
                     .catch(e => {
                         console.log(e)
@@ -397,9 +335,6 @@ function App() {
                         // before calling setState
                         if (!e.canceled) setError(e)
                     })
-                // console.log(colorPick, useStoreTracking.getState().positions)
-                // addTracker([-10, -50, 300])
-                // updateTracker(1, [-10, -10, 150])
             }),
         }),
         'Annotation': folder({
@@ -411,12 +346,11 @@ function App() {
                 const position = get('Annotation.A_Position')
                 const binding = get('Annotation.A_Binding')
                 setLabels([...labels, {Text: text, Position: position, Binding: binding}])
-
             }),
 
         }),
         'Highlight': folder({
-            'H_Binding': {options: ['0', '1', '2', '3']},
+            'H_Binding': {options: bindingOpions},
             'H_Type': {options: ['Torus', 'Arrow', 'Line', '3D Box', '2D Area', 'Marker']},
             'H_Position': [0, 0, 0],
             'Add Highlight': button((get) => {
@@ -435,18 +369,25 @@ function App() {
 
         }),
         'Motion': folder({
-            'M_Binding': {options: ['0', '1', '2', '3']},
-            'M_Type': {options: ['Path', 'Trail', 'AfterImage', 'Replay']},
+            'M_Binding': {options: bindingOpions},
+            'M_Type': {options: ['Path', 'Trail']},
             'M_Position': [0, 0, 0],
+            'Ghost Effect': false,
             'Add Motion Effect': button((get) => {
                 const category = get('Motion.M_Type')
                 const position = get('Motion.M_Position')
                 const binding = get('Motion.M_Binding')
+
+                if (category === 'Trail') {
+                    setTrail([...trail, {Binding: binding}])
+                } else if (category === 'path') {
+                    setTrail([...trail, {Binding: binding}])
+                }
             }),
 
         }),
         'Parameters': folder({
-            'P_Binding': {options: ['0', '1', '2', '3']},
+            // 'P_Binding': {options: bindingOpions},
             'P_Type': {options: ['Position', 'Angle', 'Distance', 'Speed', 'Duration', 'Count']},
             'P_Position': [0, 0, 0],
             'Add Dynamic Parameter': button((get) => {
@@ -456,21 +397,21 @@ function App() {
                 if (category === 'Position') {
                     if (dynamicSpheres.length === 1) {
                         setPos([...pos, dynamicSpheres])
-                        // console.log(dynamicSpheres, pos)
                     }
-
+                    resetDynamicSpheres()
+                } else if (category === 'Speed') {
+                    if (dynamicSpheres.length === 1) {
+                        setSpeed([...speed, dynamicSpheres])
+                    }
                     resetDynamicSpheres()
                 } else if (category === 'Angle') {
                     if (dynamicSpheres.length === 3) {
                         setAngles([...angles, dynamicSpheres])
-                        // console.log(dynamicSpheres, angles)
                     }
-
                     resetDynamicSpheres()
                 } else if (category === 'Distance') {
                     if (dynamicSpheres.length === 2) {
                         setDist([...dist, dynamicSpheres])
-                        // console.log(dynamicSpheres, dist)
                     }
                     resetDynamicSpheres()
                 }
@@ -478,7 +419,7 @@ function App() {
 
         }),
         'Assets': folder({
-            'A_Binding': {options: ['0', '1', '2', '3']},
+            'A_Binding': {options: bindingOpions},
             'A_Type': {options: ['Model', 'Embedded Screen']},
             'A_Position': [0, 0, 0],
             'Model': {image: undefined},
@@ -501,7 +442,7 @@ function App() {
 
     }))
 
-    const KinectPoints = () => {
+    const KinectPoints = ({size}) => {
 
         const [positions, colors] = useMemo(() => {
             let positions = [],
@@ -520,33 +461,7 @@ function App() {
             }
 
             return [new Float32Array(positions), new Float32Array(colors)]
-        }, [])
-
-        // useFrame(() => {
-        //     if (refPoints.current) {
-        //         const pointD = useStoreDepthD.getState().depthdata
-        //         const colorD = useStoreColorD.getState().colordata
-        //         // manually inject numbers into property. so that it won't trigger re-render.
-        //         const pos = refPoints.current.geometry.getAttribute('position');
-        //         const col = refPoints.current.geometry.getAttribute('color');
-        //         // console.log(pos, col)
-        //
-        //         for (let i = 0; i <= pointD.length; i++) {
-        //             pos.array[i] = pointD[i]
-        //             col.array[i] = colorD[i]
-        //         }
-        //
-        //         refPoints.current.geometry.setAttribute('position', pos);
-        //         refPoints.current.geometry.setAttribute('color', col);
-        //
-        //         refPoints.current.geometry.attributes.position.needsUpdate = true;
-        //         refPoints.current.geometry.attributes.color.needsUpdate = true;
-        //
-        //         // state.requireUpdate = false;
-        //     }
-        //
-        //
-        // });
+        }, [size])
 
 
         return (<points ref={refPoints}>
@@ -562,10 +477,9 @@ function App() {
 
     return (
         <div className="App">
-            <canvas hidden={true} ref={canvasRef} width={640} height={576} />
+            <canvas hidden={true} ref={canvasRef} width={640} height={576}/>
             <div style={{width: "100vw", height: "100vh"}}>
                 <Canvas
-                    // pixelRatio={window.devicePixelRatio}
                     onPointerMissed={() => setTarget(null)}
                     camera={{
                         fov: 90,
@@ -579,33 +493,30 @@ function App() {
 
                     <color attach="background" args={["#000000"]}/>
 
-                    <Center>
-                        <KinectPoints/>
-                    </Center>
+
+                    <KinectPoints size={3}/>
 
 
-                    {/*<group*/}
-                    {/*    position={[55, 105, 320]}>*/}
-                    {/*    <Sphere args={[20, 32, 32]}>*/}
-                    {/*        <meshBasicMaterial transparent={true} opacity={0.3} color={'#ff00ff'}/>*/}
-                    {/*    </Sphere>*/}
-                    {/*</group>*/}
-
-                    {/*{*/}
-                    {/*    colors.map((color, index) => {*/}
-                    {/*        return <ClickableSphere index={index}/>*/}
-                    {/*    })*/}
-                    {/*}*/}
+                    <Html scale={10} position={[10, 60, 400]} transform sprite>
+                        <Iframe url="http://localhost:4000/"
+                                width="450px"
+                                height="450px"
+                                frameBorder="0"
+                                id="myId"
+                                className="myClassname"
+                                display="initial"
+                                position="relative"/>
+                    </Html>
 
 
                     {
-                        bindingOpions.map((i, index) => {
-                            return <ClickableSphere key={index} ref={sphereRefs.current[index]}/>
+                        items.map((i, index) => {
+                            return <ClickableSphere key={index} position={[0, 0, 9999]} index={i}/>
                         })
                     }
 
 
-                    {/*<TrailScene/>*/}
+                    {/*/!*<TrailScene/>*!/*/}
 
                     {
                         angles.map((angle, index) => {
@@ -631,15 +542,22 @@ function App() {
                     }
 
                     {
-                        marker.map((mark, index) => {
-                                return <Marker key={index} rotation={[0, Math.PI / 2, 0]} position={mark.Position}>
-                                    <FaMapMarkerAlt style={{color: 'orange'}}/>
-                                </Marker>
+                        speed.map((sp, index) => {
+                                return <Speed key={index} sphere={sp[0]}/>
                             }
                         )
                     }
 
-                    {/*<Environment files="https://vazxmixjsiawhamofees.supabase.co/storage/v1/object/public/hdris/noon-grass/noon_grass_1k.hdr" background />*/}
+                    {/*{*/}
+                    {/*    marker.map((mark, index) => {*/}
+                    {/*            return <Marker key={index} rotation={[0, Math.PI / 2, 0]} position={mark.Position}>*/}
+                    {/*                <FaMapMarkerAlt style={{color: 'orange'}}/>*/}
+                    {/*            </Marker>*/}
+                    {/*        }*/}
+                    {/*    )*/}
+                    {/*}*/}
+
+                    {/*/!*<Environment files="https://vazxmixjsiawhamofees.supabase.co/storage/v1/object/public/hdris/noon-grass/noon_grass_1k.hdr" background />*!/*/}
 
 
                     <Selection>
@@ -649,7 +567,20 @@ function App() {
                         </EffectComposer>
 
                         <Select enabled={true}>
-                            <LightSaber scale={20} position={[0, 0, 100]}/>
+
+                            {/*<ModelWrapper binding={20}>*/}
+                            {/*    <LightSaber scale={400} position-z={-100} />*/}
+                            {/*</ModelWrapper>*/}
+
+                            {
+                                trail.map((tr, index) => {
+                                    return <TrailWrapper
+                                        key={index}
+                                        binding={tr.Binding}
+                                    />
+
+                                })
+                            }
 
                             <DreiSelect onChange={setSelected}>
 
@@ -711,15 +642,14 @@ function App() {
                     {/*    )*/}
                     {/*}*/}
 
-                    {/*<RoundedBox args={[1, 1, 1]} radius={0.05} smoothness={4}>*/}
-                    {/*    <meshPhongMaterial color="#f3f3f3" wireframe/>*/}
-                    {/*</RoundedBox>*/}
+                    <Lab scale={100}/>
 
 
                     {target && <TransformControls object={target} mode={System.Mode}/>}
 
                     <MapControls makeDefault/>
-                    {/*<Post />*/}
+                    {System['Ghost Effect'] === true  && <Post/>}
+
                 </Canvas>
                 <Panel selected={selected}/>
                 <Stats className="fps"/>

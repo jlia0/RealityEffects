@@ -1,8 +1,7 @@
-import React, {forwardRef, useRef, useState} from "react";
+import React, {forwardRef, useEffect, useRef, useState} from "react";
 import {useCursor, useSelect} from "@react-three/drei";
-import {useStoreControl, useStoreTracking} from "../store/useStoreControl";
+import {useStoreControl, useStoreTrack} from "../store/useStoreControl";
 import {useControlsMulti} from '../utils/MultiLeva';
-import {useFrame} from "@react-three/fiber";
 
 export const TorusComponent = forwardRef(({
                                               opacity = 1,
@@ -21,16 +20,12 @@ export const TorusComponent = forwardRef(({
 
         const selected = useSelect().map((sel) => sel.userData.store)
 
-        const positions = useStoreTracking((state) => state.positions)
+        useEffect(() => useStoreTrack.subscribe((state) => {
+            meshRef.current.position.x = state[binding][0]
+            meshRef.current.position.y = state[binding][1]
+            meshRef.current.position.z = state[binding][2]
+        }))
 
-
-        useFrame(() => {
-            if (positions.length > binding) {
-                meshRef.current.position.x = positions[binding][0];
-                meshRef.current.position.y = positions[binding][1];
-                meshRef.current.position.z = positions[binding][2];
-            }
-        })
 
         const [store, values] = useControlsMulti(selected, {
             color: {value: color},

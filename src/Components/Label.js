@@ -2,8 +2,8 @@ import {Billboard, Html, QuadraticBezierLine, useCursor, useSelect} from "@react
 import {RingComponent} from "./Ring";
 import {CircleComponent} from "./Circle";
 import * as THREE from "three";
-import React, {useRef, useState} from "react";
-import {useStoreControl, useStoreTracking} from "../store/useStoreControl";
+import React, {useEffect, useRef, useState} from "react";
+import {useStoreControl, useStoreTrack} from "../store/useStoreControl";
 import {useControlsMulti} from "../utils/MultiLeva";
 import {useFrame} from "@react-three/fiber";
 
@@ -17,16 +17,12 @@ export const Label = ({position, text, binding}) => {
         return lineRef.current.userData.store
     })
 
-    const positions = useStoreTracking((state) => state.positions)
+    useEffect(() => useStoreTrack.subscribe((state) => {
+        ref.current.position.x = state[binding][0]
+        ref.current.position.y = state[binding][1]
+        ref.current.position.z = state[binding][2]
+    }))
 
-
-    useFrame(() => {
-        if (positions.length > binding) {
-            ref.current.position.x = positions[binding][0];
-            ref.current.position.y = positions[binding][1];
-            ref.current.position.z = positions[binding][2];
-        }
-    })
 
     const [store, values] = useControlsMulti(selected, {
         Text: {value: text},

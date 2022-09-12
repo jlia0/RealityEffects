@@ -1,6 +1,7 @@
 import {LevaPanel, useControls as useControlsImpl, useCreateStore} from 'leva'
+import React from "react"
 
-export function Panel({selected}) {
+export const Panel = ({selected}) => {
     return <LevaPanel store={selected[0]?.userData.store} titleBar={{title: selected.map(() => '●').join(' ')}}/>
 }
 

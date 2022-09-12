@@ -1,11 +1,8 @@
 import create from "zustand";
-import {exp} from "three/examples/jsm/nodes/shadernode/ShaderNodeBaseElements";
 
 export const useStoreControl = create((set) => ({target: null, setTarget: (target) => set({target})}))
 
-// export const useStoreColorD = create((set) => ({colordata: null, setColor: (colordata) => set({colordata})}))
-//
-// export const useStoreDepthD = create((set) => ({depthdata: null, setDepth: (depthdata) => set({depthdata})}))
+export const useStoreSelected = create((set) => ({selected: [], setSelected: (selected) => set({selected})}))
 
 export const useStoreTracking = create((set) => ({
     positions: [],
@@ -16,6 +13,32 @@ export const useStoreTracking = create((set) => ({
         return {positions: positionsArr}
     }),
     deleteAll: () => set((state) => ({positions: []})),
+}))
+
+const ids = [...Array(40)].map((v, i) => i)
+
+export const useStoreTrack = create((set) => ({
+    items: ids,
+    ...ids.reduce((acc, id) => ({...acc, [id]: [0, 0, 9999]}), 0),
+    update(id, position) {
+        // Set all coordinates randomly
+        set((state) => {
+            const coords = {}
+            for (let i = 0; i < state.items.length; i++) {
+                if (i === id) {
+                    coords[state.items[i]] = position
+                } else {
+                    coords[state.items[i]] = state[i]
+                }
+            }
+            return coords
+        })
+    },
+    addTrack() {
+        set((state) => {
+
+        })
+    }
 }))
 
 export const useStoreColor = create((set) => ({

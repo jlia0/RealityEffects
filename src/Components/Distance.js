@@ -25,7 +25,7 @@ export const Distance = ({sphere1, sphere2}) => {
 
     const pos1 = Vector2Array(sphere1.current.position)
     const pos2 = Vector2Array(sphere2.current.position)
-    const pos = [pos1[0] + pos2[0] / 2, pos1[1] + pos2[1] / 2, pos1[2] + pos2[2] / 2]
+    const pos = [pos1[0] + pos2[0] / 2, pos1[1] + pos2[1] / 2, pos1[2]]
 
     const {distance, setDistance} = useDistanceStore()
 
@@ -46,9 +46,9 @@ export const Distance = ({sphere1, sphere2}) => {
             ref={htmlRef}
             position={[pos[0], pos[1] - 20, pos[2]]}
         >
-            <Html scale={40} transform>
+            <Html scale={50} transform>
                 <div className="annotation" style={{background: '#f0f0f0', color: 'black'}}>
-                    {distance && distance.toFixed(1) + ' px'}
+                    <span style={{fontSize: '1.5em'}}>📏</span> {distance && (distance / 10).toFixed(1) + ' cm'}
                 </div>
             </Html>
         </Billboard>

@@ -18,6 +18,8 @@ function drawLine(sphere, sphere_, lineRef) {
 
 const useAngleStore = create((set) => ({angle: null, setAngle: (angle) => set({angle})}))
 
+let count = 0
+
 export const Angle = ({sphere1, sphere2, sphere3}) => {
     const line1Ref = useRef()
     const line2Ref = useRef()
@@ -31,7 +33,13 @@ export const Angle = ({sphere1, sphere2, sphere3}) => {
         if (line1Ref && line2Ref) {
             drawLine(sphere1, sphere2, line1Ref)
             drawLine(sphere2, sphere3, line2Ref)
-            setAngle(angleBetween3DCoords(sphere1.current.position, sphere2.current.position, sphere3.current.position))
+            let angle_ = angleBetween3DCoords(sphere1.current.position, sphere2.current.position, sphere3.current.position);
+            setAngle(angle_)
+            if (count > 5) {
+                window.myAPI.sendData(angle_.toFixed(1))
+                count = 0;
+            }
+            count++
             htmlRef.current.position.x = pos[0]
             htmlRef.current.position.y = pos[1] - 20
             htmlRef.current.position.z = pos[2]
@@ -45,9 +53,9 @@ export const Angle = ({sphere1, sphere2, sphere3}) => {
             ref={htmlRef}
             position={[pos[0], pos[1] - 20, pos[2]]}
         >
-            <Html scale={40} transform>
+            <Html scale={50} transform>
                 <div className="annotation" style={{background: '#f0f0f0', color: 'black'}}>
-                    {angle && angle.toFixed(1) + '°'}
+                    <span style={{fontSize: '1.5em'}}>📐</span> {angle && angle.toFixed(1) + '°'}
                 </div>
             </Html>
         </Billboard>

@@ -1,7 +1,6 @@
 import React, {useEffect, useRef} from "react";
 import {useFrame} from "@react-three/fiber";
 import {Vector2Array} from "../utils/VectorConvert";
-import {angleBetween3DCoords} from "../utils/CalculateAngle";
 import {Billboard, Html} from "@react-three/drei";
 import create from "zustand";
 
@@ -29,9 +28,9 @@ export const Pos = ({sphere}) => {
             ref={htmlRef}
             position={[pos_[0], pos_[1] - 20, pos_[2]]}
         >
-            <Html scale={40} transform>
-                <div className="annotation" style={{background: '#f0f0f0', color: 'black'}}>
-                    {pos && `(${pos.x},${pos.y},${pos.z})`}
+            <Html scale={50} transform>
+                <div className="annotation"  style={{background: '#f0f0f0', color: 'black'}}>
+                    <span style={{fontSize: '1.5em'}}>📍</span> {pos && `(${pos.x.toFixed(1)},${pos.y.toFixed(1)},${pos.z.toFixed(1)})`}
                 </div>
             </Html>
         </Billboard>
