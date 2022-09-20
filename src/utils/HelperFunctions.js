@@ -89,6 +89,12 @@ export const createRingBuffer = function (length) {
     let pointer = 0, buffer = [];
 
     return {
+        avg_max_min: function () {
+            const sum = buffer.reduce((a, b) => a + b, 0);
+            const sum_remove_max_min = sum - this.max() - this.min()
+            const avg = (sum / (buffer.length - 2)) || 0;
+            return avg;
+        },
         avg: function () {
             const sum = buffer.reduce((a, b) => a + b, 0);
             const avg = (sum / buffer.length) || 0;

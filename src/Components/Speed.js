@@ -8,7 +8,9 @@ import {createRingBuffer} from "../utils/HelperFunctions";
 let xbuffer = createRingBuffer(2)
 let ybuffer = createRingBuffer(2)
 let zbuffer = createRingBuffer(2)
-let speedbuffer = createRingBuffer(5)
+let speedbuffer = createRingBuffer(3)
+let speed_smooth = createRingBuffer(8)
+let count = 0
 
 const useSpeedStore = create((set) => ({speed: null, setSpeed: (speed) => set({speed})}))
 
@@ -44,8 +46,15 @@ export const Speed = ({sphere}) => {
             const speed_calc = Math.cbrt(delta_x * delta_x + delta_y * delta_y + delta_z * delta_z) / delta / 100
 
             speedbuffer.push(speed_calc)
+            speed_smooth.push(speed_calc)
 
             setSpeed(speedbuffer.avg())
+
+            // if (count > 5) {
+            //     window.myAPI.sendData(speed_smooth.avg() | 0)
+            //     count = 0;
+            // }
+            // count++
 
             htmlRef.current.position.x = speed_[0]
             htmlRef.current.position.y = speed_[1] - 20
@@ -63,7 +72,7 @@ export const Speed = ({sphere}) => {
             <Html scale={50} transform>
                 <div className="annotation" style={{background: '#f0f0f0', color: 'black'}}>
                     <span
-                        style={{fontSize: '1.5em'}}>⚡️</span> {speed && speed.toFixed(2) + ' cm/s'}
+                        style={{fontSize: '1.5em'}}>⚡️</span> {speed && speed.toFixed(1) + ' cm/s'}
                 </div>
             </Html>
         </Billboard>

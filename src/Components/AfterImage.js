@@ -8,7 +8,7 @@ export function Post() {
 
     useEffect(() => {
         if (pass !== null || pass !== undefined) {
-            pass.current.uniforms.damp.value = 0.95
+            pass.current.uniforms.damp.value = 0.98
         }
     }, [pass])
 

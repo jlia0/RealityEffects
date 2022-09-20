@@ -18,9 +18,11 @@ export const Label = ({position, text, binding}) => {
     })
 
     useEffect(() => useStoreTrack.subscribe((state) => {
-        ref.current.position.x = state[binding][0]
-        ref.current.position.y = state[binding][1]
-        ref.current.position.z = state[binding][2]
+        if (binding){
+            ref.current.position.x = state[binding][0]
+            ref.current.position.y = state[binding][1]
+            ref.current.position.z = state[binding][2]
+        }
     }))
 
 

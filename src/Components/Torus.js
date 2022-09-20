@@ -16,14 +16,19 @@ export const TorusComponent = forwardRef(({
 
         const setTarget = useStoreControl((state) => state.setTarget)
         const [hovered, setHovered] = useState(false)
+        useCursor(hovered)
+
+
         const meshRef = useRef()
 
         const selected = useSelect().map((sel) => sel.userData.store)
 
         useEffect(() => useStoreTrack.subscribe((state) => {
-            meshRef.current.position.x = state[binding][0]
-            meshRef.current.position.y = state[binding][1]
-            meshRef.current.position.z = state[binding][2]
+            if(binding){
+                meshRef.current.position.x = state[binding][0]
+                meshRef.current.position.y = state[binding][1]
+                meshRef.current.position.z = state[binding][2]
+            }
         }))
 
 
@@ -34,7 +39,6 @@ export const TorusComponent = forwardRef(({
 
         // console.log(selected, isSelected)
 
-        useCursor(hovered)
 
         return <mesh ref={meshRef} userData={{store}}
                      {...props} onClick={(e) => setTarget(e.object)} onPointerOver={() => setHovered(true)}

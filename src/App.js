@@ -45,7 +45,7 @@ import useEyeDropper from 'use-eye-dropper'
 import {ClickableSphere} from "./Components/ClickableSphere";
 import {Angle} from "./Components/Angle";
 import {Label} from "./Components/Label";
-import {getRandomInt, hexToRgb, readImage, renderBGRA32ColorFrame} from "./utils/HelperFunctions";
+import {createRingBuffer, getRandomInt, hexToRgb, readImage, renderBGRA32ColorFrame} from "./utils/HelperFunctions";
 import {Distance} from "./Components/Distance";
 import {Pos} from "./Components/Pos";
 import {Marker} from "./Components/Marker";
@@ -57,6 +57,10 @@ import {ModelWrapper} from "./utils/ModelWrapper";
 import {Lab} from "./Components/Models/Lab";
 import {TrailWrapper} from "./Components/TrailWrapper";
 import {Speed} from "./Components/Speed";
+import {Trajectory} from "./Components/Trajectory";
+import UI from "./Components/UI";
+import {ColorBoxComponent} from "./Components/ColorBox";
+import Annotation from "./Components/Annotation";
 
 
 extend({EffectComposer, AfterimagePass})
@@ -78,6 +82,10 @@ const DEPTH_HEIGHT = 576;
 
 const numPoints = DEPTH_WIDTH * DEPTH_HEIGHT;
 
+// let xcolor_buffer = createRingBuffer(5)
+// let ycolor_buffer = createRingBuffer(5)
+// let zcolor_buffer = createRingBuffer(5)
+
 
 function App() {
     const setTarget = useStoreControl(state => state.setTarget)
@@ -97,6 +105,8 @@ function App() {
     const [labels, setLabels] = useState([])
     const [torus, setTorus] = useState([])
     const [trail, setTrail] = useState([])
+    const [path, setPath] = useState([])
+
 
     const [mLines, setMLines] = useState([])
     const [marker, setMarker] = useState([])
@@ -107,6 +117,7 @@ function App() {
     const canvasRef = useRef()
     const bindingOpions = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40]
     const canvasData = useRef(null)
+    const [test, setTest] = useState([])
 
     const {colors, addColor} = useStoreColor()
 
@@ -114,6 +125,8 @@ function App() {
 
 
     let flag = false
+    const color_flag = useRef(false)
+    const body_flag = useRef(false)
 
     function onResults(results) {
         if (results) {
@@ -139,7 +152,7 @@ function App() {
         }
     }
 
-    console.log('render')
+    console.log('render', trail)
 
     function onResults_Color(centerX, centerY, index) {
         if (refPoints.current) {
@@ -151,7 +164,11 @@ function App() {
             const actualY = DEPTH_HEIGHT / 2 - Math.floor(pos / DEPTH_WIDTH);
             const z = pos_arr[pos * 3 + 2]
 
-            if (z <= 1500) {
+            // xcolor_buffer.push(actualX)
+            // ycolor_buffer.push(actualY)
+            // zcolor_buffer.push(z)
+
+            if (z <= 1000) {
                 useStoreTrack.getState().update(index + 33, [actualX, actualY, z])
             }
         }
@@ -185,6 +202,7 @@ function App() {
             if (canvasData.current !== null) {
                 const colors = useStoreColor.getState().colors
                 const threshold = 50
+
                 let colors_low = []
                 let colors_high = []
 
@@ -259,6 +277,7 @@ function App() {
 
                     renderBGRA32ColorFrame(ctx, colorToDepthImageData, color)
 
+
                     for (let i = 0; i < newDepthData.length; i += 2) {
 
                         const depthValue = newDepthData[i + 1] << 8 | newDepthData[i];
@@ -267,7 +286,7 @@ function App() {
                         const g = newColorData[pointIndex * 4 + 1];
                         const r = newColorData[pointIndex * 4 + 2];
 
-                        if (depthValue > 500 && depthValue < 4000) {
+                        if (depthValue > 500 && depthValue < 2800) {
                             pos[pointIndex * 3 + 2] = depthValue / 3;
                         } else {
                             pos[pointIndex * 3 + 2] = 9999;
@@ -286,8 +305,14 @@ function App() {
                         // console.log(pos, col)
 
                         for (let i = 0; i <= pos.length; i++) {
-                            pos_ref.array[i] = pos[i]
-                            col_ref.array[i] = col[i]
+
+                            if (i > 254640) {
+                                pos_ref.array[i] = pos[i]
+                                col_ref.array[i] = col[i]
+                            } else {
+                                pos_ref.array[i] = 9999
+                                col_ref.array[i] = 0
+                            }
                         }
 
                         refPoints.current.geometry.setAttribute('position', pos_ref);
@@ -310,12 +335,28 @@ function App() {
         'Controls': folder({
             'Mode': {value: 'translate', options: ['translate', 'scale', 'rotate']},
             'Body Tracking': button((get) => {
-                setTimeout(() => setInterval(onTimerTick_Pose, 33), 3000)
+                if (!body_flag.current) {
+                    setTimeout(() => setInterval(onTimerTick_Pose, 33), 3000)
+                    body_flag.current = true
+                }
 
             }),
             'Color Tracking': button((get) => {
-                setTimeout(() => setInterval(onTimerTick_Color, 33), 3000)
+                if (!color_flag.current) {
+                    setTimeout(() => setInterval(onTimerTick_Color, 33), 3000)
+                    color_flag.current = true
+                }
 
+            }),
+            'Clear': button((get) => {
+                setPos([])
+                setSpeed([])
+                setDist([])
+                setAngles([])
+                setLabels([])
+                setTorus([])
+                setTrail([])
+                setPath([])
             }),
         }),
         'Tracking': folder({
@@ -346,6 +387,8 @@ function App() {
                 const position = get('Annotation.A_Position')
                 const binding = get('Annotation.A_Binding')
                 setLabels([...labels, {Text: text, Position: position, Binding: binding}])
+                // setLabels([...labels, {Text: text, Position: [0, 0, 0]}])
+
             }),
 
         }),
@@ -370,7 +413,7 @@ function App() {
         }),
         'Motion': folder({
             'M_Binding': {options: bindingOpions},
-            'M_Type': {options: ['Path', 'Trail']},
+            'M_Type': {options: ['Trail', 'Path']},
             'M_Position': [0, 0, 0],
             'Ghost Effect': false,
             'Add Motion Effect': button((get) => {
@@ -379,16 +422,17 @@ function App() {
                 const binding = get('Motion.M_Binding')
 
                 if (category === 'Trail') {
+                    console.log(trail)
                     setTrail([...trail, {Binding: binding}])
-                } else if (category === 'path') {
-                    setTrail([...trail, {Binding: binding}])
+                } else if (category === 'Path') {
+                    setPath([...path, {Binding: binding}])
                 }
             }),
 
         }),
         'Parameters': folder({
             // 'P_Binding': {options: bindingOpions},
-            'P_Type': {options: ['Position', 'Angle', 'Distance', 'Speed', 'Duration', 'Count']},
+            'P_Type': {options: ['Position', 'Angle', 'Distance', 'Speed']},
             'P_Position': [0, 0, 0],
             'Add Dynamic Parameter': button((get) => {
                 const category = get('Parameters.P_Type')
@@ -470,7 +514,7 @@ function App() {
                 <bufferAttribute attach={"attributes-color"} args={[colors, 3]}/>
             </bufferGeometry>
             {/*attach="material" sizeAttenuation={true}*/}
-            <pointsMaterial attach="material" sizeAttenuation={true} vertexColors={true} size={3}/>
+            <pointsMaterial attach="material" sizeAttenuation={true} vertexColors={true} size={2}/>
         </points>);
     }
 
@@ -496,17 +540,64 @@ function App() {
 
                     <KinectPoints size={3}/>
 
+                    {/*<Html scale={0.1} position={[20, 0, 600]} sprite transform>*/}
+                    {/*    <Annotation*/}
+                    {/*        title="John Doe"*/}
+                    {/*        long*/}
+                    {/*        body="Mixed Reality Researcher"*/}
+                    {/*        position={{*/}
+                    {/*            top: "20%",*/}
+                    {/*            left: "10%"*/}
+                    {/*        }}*/}
+                    {/*    />*/}
+                    {/*</Html>*/}
 
-                    <Html scale={10} position={[10, 60, 400]} transform sprite>
-                        <Iframe url="http://localhost:4000/"
-                                width="450px"
-                                height="450px"
-                                frameBorder="0"
-                                id="myId"
-                                className="myClassname"
-                                display="initial"
-                                position="relative"/>
-                    </Html>
+                    {/*<Html scale={0.1} position={[-20, 0, 600]} sprite transform>*/}
+                    {/*    <Annotation*/}
+                    {/*        title="RealityEdit"*/}
+                    {/*        body="Augmenting 3D Volumetric Videos"*/}
+                    {/*        position={{*/}
+                    {/*            top: "25%",*/}
+                    {/*            right: "5%"*/}
+                    {/*        }}*/}
+                    {/*    />*/}
+                    {/*</Html>*/}
+
+                    {/*<TransformControls>*/}
+                    {/*    <UI scale={1} float position={[0, -100, 9999]}/>*/}
+                    {/*</TransformControls>*/}
+
+                    {/*rotation={[Math.PI / 2.2, 0, 0]*/}
+
+
+                    {/*<Html scale={80} position={[-400, 50, 1000]} sprite transform>*/}
+
+                    {/*    <Iframe src="https://www.youtube.com/embed/ZUUM5sIZwzM"*/}
+                    {/*            width="450px"*/}
+                    {/*            height="450px"*/}
+                    {/*            frameBorder="0"*/}
+                    {/*            display="initial"*/}
+                    {/*            position="relative"*/}
+                    {/*    />*/}
+
+                    {/*        <Iframe*/}
+                    {/*            src="https://assets.pinterest.com/ext/embed.html?id=873346552712754397" height="1113"*/}
+                    {/*            width="600" frameBorder="0" scrolling="no"/>*/}
+
+                    {/*        <Iframe sandbox="allow-popups allow-scripts allow-modals allow-forms allow-same-origin"*/}
+                    {/*                width="200px"*/}
+                    {/*                height="450px"*/}
+                    {/*                frameBorder="0"*/}
+                    {/*                display="initial"*/}
+                    {/*                position="relative"*/}
+                    {/*                src="//ws-na.amazon-adsystem.com/widgets/q?ServiceVersion=20070822&OneJS=1&Operation=GetAdHtml&MarketPlace=US&source=ss&ref=as_ss_li_til&ad_type=product_link&tracking_id=jliao-20&language=en_US&marketplace=amazon&region=US&placement=B019UDIGD0&asins=B019UDIGD0&linkId=b13bfbce530946fc38a14f2f214b57ec&show_border=true&link_opens_in_new_window=true"></Iframe>*/}
+
+                    {/*</Html>*/}
+
+
+                    {/*<ClickableSphere position={[0, 0, 100]}/>*/}
+
+                    {/*<ClickableSphere position={[0, 0, 500]}/>*/}
 
 
                     {
@@ -515,8 +606,6 @@ function App() {
                         })
                     }
 
-
-                    {/*/!*<TrailScene/>*!/*/}
 
                     {
                         angles.map((angle, index) => {
@@ -557,7 +646,9 @@ function App() {
                     {/*    )*/}
                     {/*}*/}
 
-                    {/*/!*<Environment files="https://vazxmixjsiawhamofees.supabase.co/storage/v1/object/public/hdris/noon-grass/noon_grass_1k.hdr" background />*!/*/}
+                    {/*<Environment*/}
+                    {/*    files="https://vazxmixjsiawhamofees.supabase.co/storage/v1/object/public/hdris/noon-grass/noon_grass_1k.hdr"*/}
+                    {/*    background/>*/}
 
 
                     <Selection>
@@ -572,6 +663,13 @@ function App() {
                             {/*    <LightSaber scale={400} position-z={-100} />*/}
                             {/*</ModelWrapper>*/}
 
+                            {/*Figure: Product Showcase*/}
+
+                            {
+                                <ColorBoxComponent width={50} height={55} depth={60} binding={17}/>
+                            }
+
+
                             {
                                 trail.map((tr, index) => {
                                     return <TrailWrapper
@@ -582,7 +680,18 @@ function App() {
                                 })
                             }
 
+                            {
+                                path.map((pa, index) => {
+                                    return <Trajectory
+                                        key={index}
+                                        binding={pa.Binding}
+                                    />
+
+                                })
+                            }
+
                             <DreiSelect onChange={setSelected}>
+
 
                                 {
                                     labels.map((label, count) => {
@@ -615,6 +724,25 @@ function App() {
 
                                     })
                                 }
+
+                                {/*<TorusComponent*/}
+                                {/*    position={[0, 0, 150]}*/}
+                                {/*    radius={50}*/}
+                                {/*    tube={2}*/}
+                                {/*    opacity={1}*/}
+                                {/*    color={'pink'}*/}
+                                {/*    rotation={[Math.PI / 2.2, 0, 0]}*/}
+                                {/*/>*/}
+
+                                {/*<TorusComponent*/}
+                                {/*    position={[0, 0, 100]}*/}
+                                {/*    radius={50}*/}
+                                {/*    tube={2}*/}
+                                {/*    opacity={1}*/}
+                                {/*    color={'pink'}*/}
+                                {/*    rotation={[Math.PI / 2.2, 0, 0]}*/}
+                                {/*/>*/}
+
                             </DreiSelect>
 
 
@@ -642,13 +770,13 @@ function App() {
                     {/*    )*/}
                     {/*}*/}
 
-                    <Lab scale={100}/>
+                    <Lab scale={100} position={[0, 0, 900]} rotation={[0, Math.PI, 0]}/>
 
 
                     {target && <TransformControls object={target} mode={System.Mode}/>}
 
                     <MapControls makeDefault/>
-                    {System['Ghost Effect'] === true  && <Post/>}
+                    {System['Ghost Effect'] === true && <Post/>}
 
                 </Canvas>
                 <Panel selected={selected}/>

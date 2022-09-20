@@ -18,6 +18,11 @@ if (KinectAzure.open()) {
         // include_depth_to_color: true
     })
 
+    KinectAzure.setBrightness(50);
+    KinectAzure.setContrast(8);
+    KinectAzure.setSaturation(70)
+    // KinectAzure.setExposure()
+
 } else {
     console.log('kinect not open')
 }

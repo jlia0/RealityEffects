@@ -10,7 +10,7 @@ const data = {
     labels: labels,
     datasets: [
         {
-            label: 'Cubic interpolation (monotone)',
+            label: 'Angle Data',
             data: datapoints,
             borderColor: 'rgba(255, 99, 132, 1.0)',
             fill: false,

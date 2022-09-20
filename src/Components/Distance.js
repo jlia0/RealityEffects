@@ -48,7 +48,7 @@ export const Distance = ({sphere1, sphere2}) => {
         >
             <Html scale={50} transform>
                 <div className="annotation" style={{background: '#f0f0f0', color: 'black'}}>
-                    <span style={{fontSize: '1.5em'}}>📏</span> {distance && (distance / 10).toFixed(1) + ' cm'}
+                    <span style={{fontSize: '1.5em'}}>📏</span> {distance && (distance / 4).toFixed(1) + ' cm'}
                 </div>
             </Html>
         </Billboard>

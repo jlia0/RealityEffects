@@ -15,9 +15,9 @@ export function TrailWrapper({binding}) {
         <>
             <Trail
                 width={60}
-                length={10}
+                length={30}
                 color={'#F8D628'}
-                decay={0.2} // How fast the line fades away
+                decay={1} // How fast the line fades away
                 attenuation={(t) => {
                     return t * t
                 }}

@@ -10,7 +10,7 @@ import {applyProps} from "@react-three/fiber";
 import {useStoreControl} from "../../store/useStoreControl";
 
 export function Model(props) {
-    const { nodes, materials } = useGLTF("/makerspace.gltf");
+    const { nodes, materials } = useGLTF("/classroom.gltf");
 
     return (
         <group {...props} dispose={null}>
@@ -24,10 +24,10 @@ export function Model(props) {
     );
 }
 
-useGLTF.preload("/lab.gltf");
+useGLTF.preload("/classroom.gltf");
 
 export function Lab(props) {
-    const { scene, nodes } = useGLTF('/makerspace.gltf')
+    const { scene, nodes } = useGLTF('/classroom.gltf')
 
     const setTarget = useStoreControl((state) => state.setTarget)
 
