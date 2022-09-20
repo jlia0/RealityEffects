@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <title>ZingSoft Demo</title>
+    <script nonce="undefined" src="https://cdn.zingchart.com/zingchart.min.js"></script>
+    <script nonce="undefined">
+        zingchart.MODULESDIR = "https://cdn.zingchart.com/modules/";
+    </script>
+
+    <script nonce="undefined" src="https://code.jquery.com/jquery-2.2.4.min.js" integrity="sha256-BbhdlvQf/xTY9gja0Dq3HiwQF8LaCRTXxZKRutelT44=" crossorigin="anonymous">
+    </script>
+
+    <style>
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+        }
+
+        .chart--container {
+            min-height: 150px;
+            width: 100%;
+            height: 100%;
+        }
+
+        #zc {
+            width: 100%;
+            min-height: 500px;
+            max-height: 650px;
+        }
+
+        .zc-ref {
+            display: none;
+        }
+    </style>
+</head>
+
+<body>
+<!-- CHART CONTAINER -->
+<div id="zc" class="chart--container">
+    <a class="zc-ref" href="https://www.zingchart.com/">Powered by ZingChart</a>
+</div>
+<script>
+    ZC.LICENSE = ["569d52cefae586f634c54f86dc99e6a9", "b55b025e438fa8a98e32482b5f768ff5"];
+    var cdata = {
+        type: 'radar',
+        heatmap: {
+            graph: {
+                keyScale: 'scale-k',
+                valScale: 'scale-v'
+            },
+            brushType: 'circle',
+            size: '15px',
+            composite: true,
+            blur: 70,
+            alpha: 1,
+            tooltip: {
+                decimals: 1
+            }
+        },
+        plotarea: {
+            margin: 10
+        },
+        scale: {
+            sizeFactor: 0.9
+        },
+        scaleV: {
+            offsetStart: 40,
+            offsetEnd: 0,
+            values: '0:100:25'
+        },
+        scaleK: {
+            aspect: 'circle',
+            values: '0:355:5',
+            maxItems: 12
+        },
+        tooltip: {},
+        plot: {},
+        series: [{}]
+    };
+
+    var MAX = 100;
+    var aData = [];
+    zingchart.bind('zc', 'load', function() {
+        window.setInterval(function() {
+            var l, k, v;
+            var iMaxPoints = 512;
+            if (aData.length === 0) {
+                for (l = 0; l < iMaxPoints; l++) {
+                    k = 5 * Math.round(ZC._r_(0, 355) / 5);
+                    v = 5 * Math.round(ZC._r_(10, 100) / 5);
+                    aData.push([k, v, MAX * Math.random()]);
+                }
+            } else {
+                for (l = aData.length - 1; l >= 0; l--) {
+                    aData[l][2] = Math.min(MAX, aData[l][2] - (MAX / 19) + (MAX / 20) * Math.random());
+                    if (aData[l][2] <= 0) {
+                        aData.splice(l, 1);
+                    }
+                }
+                for (l = 0; l < iMaxPoints - aData.length; l++) {
+                    k = 5 * Math.round(ZC._r_(0, 355) / 5);
+                    v = 5 * Math.round(ZC._r_(10, 100) / 5);
+                    aData.push([k, v, MAX * Math.random()]);
+                }
+            }
+            zingchart.exec('zc', 'heatmap.setdata', {
+                data: aData
+            });
+        }, 15);
+    });
+
+    zingchart.loadModules('heatmap', function() {
+        zingchart.render({
+            id: 'zc',
+            width: '100%',
+            height: '100%',
+            output: 'svg',
+            data: cdata,
+            modules: 'heatmap,color-scale'
+        });
+    });
+</script>
+</body>
+
+</html>

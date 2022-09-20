@@ -1,8 +1,4 @@
-export const KinectAzure = window.kinect;
+const {myAPI} = window
 
-// const electron = window.require('electron')
+export const fs = myAPI.require('fs').promises;
 
-//
-// export const importLibs = () => {
-//     console.log(kinect_stream, electron);
-// }
